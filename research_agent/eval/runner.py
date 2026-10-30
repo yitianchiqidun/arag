@@ -75,7 +75,9 @@ def git_state() -> dict[str, Any]:
             ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True, check=False
         ).stdout.strip()
 
-    return {"commit": run("rev-parse", "HEAD"), "dirty": bool(run("status", "--porcelain"))}
+    # Untracked files (e.g. local notes) do not change the code that ran.
+    dirty = bool(run("status", "--porcelain", "--untracked-files=no"))
+    return {"commit": run("rev-parse", "HEAD"), "dirty": dirty}
 
 
 def config_fingerprint(cfg: RunConfig) -> str:
