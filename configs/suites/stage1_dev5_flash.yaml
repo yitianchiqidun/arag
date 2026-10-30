@@ -1,0 +1,33 @@
+# Stage 1 comparison table: Naive RAG vs A-RAG (Full) vs tool ablations, dev5 smoke test (qwen-flash).
+# Every variant = base_config + overrides; `python -m research_agent.eval compare` refuses
+# rows that differ in anything other than the method / ablation switches.
+#
+#   python -m research_agent.eval suite configs/suites/stage1_dev5_flash.yaml
+#   python -m research_agent.eval suite configs/suites/stage1_dev5_flash.yaml --only wo_read
+name: stage1_dev5_flash
+description: smoke test of the stage 1 suite with the cheap debug model
+base_config: configs/musique_qwen_flash_debug.yaml
+questions: data/subsets/musique_dev5_seed7.json
+output_root: results/dev/stage1_dev5_flash
+reference: arag_full
+
+variants:
+  - name: naive_rag
+    description: paper baseline, top-5 chunks by dense retrieval, one LLM call
+    overrides: {method: naive_rag}
+
+  - name: arag_full
+    description: A-RAG with all three tools (re-run with the stage 1 code)
+    overrides: {}
+
+  - name: wo_keyword
+    description: paper ablation "w/o KW Search"
+    overrides: {agent: {tools: [semantic_search, read_chunk]}}
+
+  - name: wo_semantic
+    description: paper ablation "w/o Semantic"
+    overrides: {agent: {tools: [keyword_search, read_chunk]}}
+
+  - name: wo_read
+    description: paper ablation "w/o Chunk Read" (searches return whole chunks)
+    overrides: {agent: {tools: [keyword_search, semantic_search], search_result: full_chunk}}

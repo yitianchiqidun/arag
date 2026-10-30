@@ -1,4 +1,8 @@
-"""CLI: ``python -m research_agent.eval {subset,run,judge,summarize,pipeline}``."""
+"""CLI: ``python -m research_agent.eval {subset,run,judge,summarize,pipeline,suite,compare}``.
+
+- ``pipeline``: one config on one question file -> predictions.jsonl + summary.{md,csv,json}
+- ``suite``: a whole comparison table (baseline + ablations) -> comparison.{md,csv}
+"""
 
 from __future__ import annotations
 
@@ -41,19 +45,34 @@ def cmd_judge(args: argparse.Namespace) -> None:
 
 
 def cmd_summarize(args: argparse.Namespace) -> None:
-    from research_agent.eval.summarize import summarize_run, to_markdown
+    from research_agent.eval.summarize import to_markdown, write_summary
 
-    summary = summarize_run(args.output)
-    out = Path(args.output)
-    (out / "summary.json").write_text(summary.model_dump_json(indent=2) + "\n", "utf-8")
-    (out / "summary.md").write_text(to_markdown(summary) + "\n", "utf-8")
-    print(to_markdown(summary))
+    print(to_markdown(write_summary(args.output)))
 
 
 def cmd_pipeline(args: argparse.Namespace) -> None:
     cmd_run(args)
     cmd_judge(args)
     cmd_summarize(args)
+
+
+def cmd_suite(args: argparse.Namespace) -> None:
+    from research_agent.eval.suite import Suite, compare_suite, run_suite
+
+    suite = Suite.from_yaml(args.suite)
+    if args.compare_only:
+        print(compare_suite(suite)[1])
+        return
+    only = args.only.split(",") if args.only else None
+    print(run_suite(suite, workers=args.workers, only=only))
+
+
+def cmd_compare(args: argparse.Namespace) -> None:
+    from research_agent.eval.compare import compare_runs, write_comparison
+
+    runs = dict(item.split("=", 1) for item in args.run)
+    rows = compare_runs(runs, args.reference)
+    print(write_comparison(rows, args.reference, args.out))
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -90,6 +109,19 @@ def main(argv: list[str] | None = None) -> None:
     p = sub.add_parser("summarize", help="aggregate a judged run directory")
     add_common(p, needs_config=False)
     p.set_defaults(func=cmd_summarize)
+
+    p = sub.add_parser("suite", help="run every variant of a suite, then build the table")
+    p.add_argument("suite", help="suite YAML, e.g. configs/suites/stage1_musique100.yaml")
+    p.add_argument("--only", help="comma-separated variant names to run (default: all)")
+    p.add_argument("--workers", "-w", type=int, default=5)
+    p.add_argument("--compare-only", action="store_true", help="only rebuild the table")
+    p.set_defaults(func=cmd_suite)
+
+    p = sub.add_parser("compare", help="comparison table over existing judged runs")
+    p.add_argument("--run", action="append", required=True, help="name=run_dir (repeatable)")
+    p.add_argument("--reference", required=True, help="name of the reference run")
+    p.add_argument("--out", required=True, help="output prefix; writes .md and .csv")
+    p.set_defaults(func=cmd_compare)
 
     args = parser.parse_args(argv)
     load_env()
