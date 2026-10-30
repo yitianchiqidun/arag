@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import statistics
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
+
+from research_agent.eval.metrics import RepeatCounts, hop_group, repeat_counts
 
 
 class RunSummary(BaseModel):
@@ -33,16 +37,28 @@ class RunSummary(BaseModel):
     avg_cached_tokens: float
     cache_hit_rate: float
     avg_retrieved_tokens: float
+    # Share of full-text chunk reads that re-requested a chunk already shown (None: no reads).
+    repeat_read_rate: float | None
+    # Share of search calls identical to an earlier one in the same question.
+    repeat_search_rate: float | None
     avg_latency_s: float
     p50_latency_s: float
     p95_latency_s: float
     termination: dict[str, int]
+    max_loops_rate: float
+    # LLM-Acc over all questions of each hop count (MuSiQue ids), and the group sizes.
+    llm_acc_by_hop: dict[str, float]
+    n_by_hop: dict[str, int]
     agent_cost: float
     judge_cost: float
 
     @property
     def total_cost(self) -> float:
         return self.agent_cost + self.judge_cost
+
+    @property
+    def agent_cost_per_100(self) -> float:
+        return self.agent_cost / self.n * 100 if self.n else 0.0
 
 
 def _load_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -61,9 +77,13 @@ def _is_error(record: dict[str, Any]) -> bool:
     return bool(record.get("error")) or (isinstance(pred, str) and pred.startswith("Error:"))
 
 
+def load_predictions(run_dir: str | Path) -> list[dict[str, Any]]:
+    return _load_jsonl(Path(run_dir) / "predictions.jsonl")
+
+
 def summarize_run(run_dir: str | Path) -> RunSummary:
     run_dir = Path(run_dir)
-    records = _load_jsonl(run_dir / "predictions.jsonl")
+    records = load_predictions(run_dir)
     if not records or "llm_accuracy" not in records[0]:
         raise ValueError(f"{run_dir} has no judged predictions; run the judge first")
     run_meta = json.loads((run_dir / "run_meta.json").read_text(encoding="utf-8"))
@@ -77,6 +97,19 @@ def summarize_run(run_dir: str | Path) -> RunSummary:
     latencies = [float(r["latency_s"]) for r in records]
     input_tokens = sum(r["input_tokens"] for r in records)
     cached_tokens = sum(r["cached_tokens"] for r in records)
+    repeats = RepeatCounts()
+    for r in records:
+        c = repeat_counts(r.get("trajectory") or [])
+        repeats.full_text_chunks += c.full_text_chunks
+        repeats.repeated_chunks += c.repeated_chunks
+        repeats.searches += c.searches
+        repeats.repeated_searches += c.repeated_searches
+    by_hop: defaultdict[str, list[float]] = defaultdict(list)
+    for r in records:
+        group = hop_group(str(r.get("qid", "")))
+        if group:
+            by_hop[group].append(float(r["llm_accuracy"]))
+    termination = Counter(r.get("termination", "unknown") for r in records)
 
     def mean(key: str) -> float:
         return sum(float(r.get(key, 0) or 0) for r in records) / n
@@ -105,17 +138,31 @@ def summarize_run(run_dir: str | Path) -> RunSummary:
         avg_cached_tokens=cached_tokens / n,
         cache_hit_rate=cached_tokens / input_tokens if input_tokens else 0.0,
         avg_retrieved_tokens=mean("total_retrieved_tokens"),
+        repeat_read_rate=(
+            repeats.repeated_chunks / repeats.full_text_chunks if repeats.full_text_chunks else None
+        ),
+        repeat_search_rate=(
+            repeats.repeated_searches / repeats.searches if repeats.searches else None
+        ),
         avg_latency_s=statistics.fmean(latencies),
         p50_latency_s=statistics.median(latencies),
         p95_latency_s=_percentile(latencies, 0.95),
-        termination=dict(Counter(r.get("termination", "unknown") for r in records)),
+        termination=dict(termination),
+        max_loops_rate=termination["max_loops"] / n,
+        llm_acc_by_hop={k: sum(v) / len(v) for k, v in sorted(by_hop.items())},
+        n_by_hop={k: len(v) for k, v in sorted(by_hop.items())},
         agent_cost=sum(float(r.get("total_cost", 0) or 0) for r in records),
         judge_cost=float(judge_meta["usage"]["cost"]),
     )
 
 
+def _rate(value: float | None) -> str:
+    return "—" if value is None else f"{value:.1%}"
+
+
 def to_markdown(s: RunSummary) -> str:
     tools = ", ".join(f"{k} {v:.2f}" for k, v in s.tool_calls_by_tool.items())
+    hops = " / ".join(f"{k} {v:.0%} (n={s.n_by_hop[k]})" for k, v in s.llm_acc_by_hop.items())
     rows = [
         ("Agent model / judge model", f"{s.model} / {s.judge_model}"),
         ("Questions (answered / errors)", f"{s.n} ({s.answered} / {s.errors})"),
@@ -124,8 +171,13 @@ def to_markdown(s: RunSummary) -> str:
             "Cont-Acc (upstream def / over all questions)",
             f"{s.cont_acc:.1%} / {s.cont_acc_all:.1%}",
         ),
+        ("LLM-Acc by hop count (over all questions)", hops or "—"),
         ("Avg loops / LLM calls", f"{s.avg_loops:.2f} / {s.avg_llm_calls:.2f}"),
         ("Avg tool calls (by tool)", f"{s.avg_tool_calls:.2f} ({tools})"),
+        (
+            "Repeat read rate / repeat search rate",
+            f"{_rate(s.repeat_read_rate)} / {_rate(s.repeat_search_rate)}",
+        ),
         ("Avg input / output tokens", f"{s.avg_input_tokens:,.0f} / {s.avg_output_tokens:,.0f}"),
         ("Implicit cache hit rate", f"{s.cache_hit_rate:.1%}"),
         ("Avg retrieved tokens (upstream metric)", f"{s.avg_retrieved_tokens:,.0f}"),
@@ -134,6 +186,7 @@ def to_markdown(s: RunSummary) -> str:
             f"{s.avg_latency_s:.1f} / {s.p50_latency_s:.1f} / {s.p95_latency_s:.1f}",
         ),
         ("Termination reasons", ", ".join(f"{k} {v}" for k, v in sorted(s.termination.items()))),
+        ("Hit max loops", f"{s.max_loops_rate:.1%}"),
         (
             f"Cost ({s.currency}) agent + judge = total",
             f"{s.agent_cost:.3f} + {s.judge_cost:.3f} = {s.total_cost:.3f}",
@@ -142,3 +195,37 @@ def to_markdown(s: RunSummary) -> str:
     lines = ["| Metric | Value |", "| --- | --- |"]
     lines += [f"| {k} | {v} |" for k, v in rows]
     return "\n".join(lines)
+
+
+def to_csv_row(s: RunSummary) -> dict[str, Any]:
+    """Flat record: nested dicts become ``<field>.<key>`` columns."""
+    row: dict[str, Any] = {}
+    for key, value in s.model_dump().items():
+        if isinstance(value, dict):
+            row.update({f"{key}.{k}": v for k, v in value.items()})
+        else:
+            row[key] = value
+    row["total_cost"] = s.total_cost
+    row["agent_cost_per_100"] = s.agent_cost_per_100
+    return row
+
+
+def rows_to_csv(rows: list[dict[str, Any]]) -> str:
+    columns: list[str] = []
+    for row in rows:
+        columns += [c for c in row if c not in columns]
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=columns, lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    return buf.getvalue()
+
+
+def write_summary(run_dir: str | Path) -> RunSummary:
+    """Summarize a judged run and write ``summary.{json,md,csv}`` into it."""
+    summary = summarize_run(run_dir)
+    out = Path(run_dir)
+    (out / "summary.json").write_text(summary.model_dump_json(indent=2) + "\n", "utf-8")
+    (out / "summary.md").write_text(to_markdown(summary) + "\n", "utf-8")
+    (out / "summary.csv").write_text(rows_to_csv([to_csv_row(summary)]), "utf-8")
+    return summary
