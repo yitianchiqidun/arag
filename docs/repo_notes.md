@@ -139,7 +139,7 @@ flowchart TD
 | 记录每题 token、耗时、终止原因 | 继承 `BatchRunner`，覆盖 `_create_agent` / `_process_one` | 已完成：`research_agent/eval/runner.py` |
 | 固定裁判、记录裁判花费 | 用自己的 client 实例化上游 `Evaluator` | 已完成：`research_agent/eval/judge.py` |
 | **轨迹记录（阶段 2）** | ① 包装 `LLMClient.chat`：每次调用都能拿到**完整 messages**（同一个 list 对象，逐轮增长）和原始响应；② 包装 `ToolRegistry.execute`：拿到工具名、参数、结果、耗时 | 两者组合即可重建每一步的 thought / tool_call / tool_result / latency / tokens，不需要改 `BaseAgent` |
-| 工具消融（阶段 1） | 构造 `ToolRegistry` 时少注册某个工具 | 覆盖 `BatchRunner._init_shared_tools`；注意系统提示词里硬编码了三个工具名，消融时要一并处理 |
+| 工具消融（阶段 1，已实现） | 构造 `ToolRegistry` 时少注册某个工具 | 已实现：`MeteredBatchRunner._init_shared_tools` 调用 `research_agent/agent/tools.py` 的 `build_tool_registry`，提示词由 `research_agent/agent/prompt.py` 派生（design_decisions.md D11） |
 | 新工具（rerank、网络搜索） | 实现 `BaseTool`，`registry.register(...)` | 阶段 5c |
 | 规划、记忆（改变循环本身） | 继承 `BaseAgent` 覆盖 `run` | 阶段 5a/5b；`run` 是一个整体方法，没有更细的钩子，覆盖时需要重写循环 |
 | 改提示词 | `src/arag/agent/prompts/default.txt` 是文件，可以换成自己的文件传入 `system_prompt` | |
@@ -155,3 +155,4 @@ flowchart TD
 5. Agent 的完整 messages（含中间推理）不落盘，阶段 2 需要补上。
 6. 切句正则会切断小数和缩写；关键词检索是子串匹配，没有 IDF。这两点可能是 bad case 的来源，阶段 4 验证。
 7. 查询向量和句子向量用同样的方式编码。Qwen3-Embedding 的模型卡建议查询端加指令前缀（`prompt_name="query"`），上游没有加。这是一个低成本的检索改进点，可以留到阶段 5c 和 rerank 一起评估。
+8. `batch_runner` 找不到句子索引时只打印一条警告，然后**静默去掉 semantic_search** 继续跑，完整版会在不知不觉中变成消融版。我们的 `build_tool_registry` 改为直接报错。
