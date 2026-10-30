@@ -82,7 +82,7 @@ flowchart TD
 5. **执行工具**（:134-174）：一条 assistant 消息里可以有多个并行的 `tool_calls`，按顺序逐个执行。参数 JSON 解析失败时**静默变成空参数**（:138-140）。每个结果作为 `{"role":"tool","tool_call_id":...}` 追加。`trajectory` 每个工具调用记一条：`loop`、`tool_name`、`arguments`、`tool_result` 全文，加上工具返回的 log（`retrieved_tokens` 等）。
 6. **强制作答**（[`_force_final_answer`](../src/arag/agent/base.py:41)）：追加一条 user 消息“已达上限，必须现在作答，不要再调工具”，然后**不带 tools** 调一次 LLM。
 
-需要注意的行为（后续 bad case 分析和面试都会用到）：
+需要注意的行为（后续 bad case 分析会用到）：
 - **LLM 调用异常会被吞掉**：`except: break`（:108-113）跳出循环后走“达到最大轮数”的分支，结果里标的是 `max_loops_exceeded=True`。所以上游的结果无法区分“真的超步数”和“API 报错”。我们的 `MeteredLLMClient` 记录了失败调用，借此区分（`termination=llm_error`）。
 - **`loops` 统计的是 LLM 调用轮数**，不是工具调用次数。一轮可能调多个工具。
 - **模型的中间思考没有进 trajectory**：assistant 消息里的 `content`（工具调用前的推理文字）只存在于局部变量 `messages` 中，`run()` 不返回 messages。阶段 2 要保留完整 messages 做 SFT 数据，必须从外部捕获（见第 8 节）。
