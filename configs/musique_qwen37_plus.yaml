@@ -1,4 +1,4 @@
-# Candidate main config: A-RAG (Full) on MuSiQue with qwen3.7-plus (newer generation).
+# Main config (design_decisions.md D2): A-RAG (Full) on MuSiQue with qwen3.7-plus.
 # Compatible with the upstream scripts/batch_runner.py (extra keys are ignored there),
 # but run it via `python -m research_agent.eval` to get CNY cost, tokens and latency.
 # API key / base URL come from .env (ARAG_API_KEY, ARAG_BASE_URL).
