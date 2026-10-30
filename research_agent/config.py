@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from arag.core.config import Config
+
+ToolName = Literal["keyword_search", "semantic_search", "read_chunk"]
+ALL_TOOLS: tuple[ToolName, ...] = ("keyword_search", "semantic_search", "read_chunk")
 
 
 class LLMConfig(BaseModel):
@@ -51,6 +54,34 @@ class AgentConfig(BaseModel):
 
     max_loops: int = Field(default=15, ge=1)
     max_token_budget: int = Field(default=128000, ge=1)
+    # Ablation switches. Defaults reproduce A-RAG (Full).
+    tools: list[ToolName] = Field(default_factory=lambda: list(ALL_TOOLS))
+    # "full_chunk" = the paper's "w/o Chunk Read": searches return whole chunks instead of
+    # snippets, and read_chunk is removed.
+    search_result: Literal["snippet", "full_chunk"] = "snippet"
+
+    @model_validator(mode="after")
+    def _check_tools(self) -> AgentConfig:
+        if len(set(self.tools)) != len(self.tools):
+            raise ValueError(f"duplicate tools: {self.tools}")
+        if not {"keyword_search", "semantic_search"} & set(self.tools):
+            raise ValueError("at least one search tool (keyword_search/semantic_search) is needed")
+        has_read = "read_chunk" in self.tools
+        if has_read and self.search_result == "full_chunk":
+            raise ValueError("search_result=full_chunk replaces read_chunk; remove it from tools")
+        if not has_read and self.search_result == "snippet":
+            raise ValueError(
+                "without read_chunk the agent only sees snippets; set search_result: full_chunk"
+            )
+        return self
+
+
+class NaiveRAGConfig(BaseModel):
+    """Paper baseline: one dense retrieval over whole chunks, then one LLM call."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    top_k: int = Field(default=5, ge=1)
 
 
 class DataConfig(BaseModel):
@@ -63,10 +94,12 @@ class DataConfig(BaseModel):
 class RunConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    method: Literal["arag", "naive_rag"] = "arag"
     llm: LLMConfig
     judge: LLMConfig
     embedding: EmbeddingConfig = EmbeddingConfig()
     agent: AgentConfig = AgentConfig()
+    naive_rag: NaiveRAGConfig = NaiveRAGConfig()
     data: DataConfig
     pricing_file: str = "configs/pricing_bailian.yaml"
 
