@@ -1,8 +1,8 @@
-"""Batch-run A-RAG with metering, reusing the upstream BatchRunner.
+"""Batch-run A-RAG (or a baseline) with metering, reusing the upstream BatchRunner.
 
 Upstream ``scripts/batch_runner.py`` records answers, cost and the tool trajectory, but not
 token counts, latency or why the loop stopped. ``MeteredBatchRunner`` subclasses it and only
-swaps the LLM client / agent class and enriches each prediction record.
+swaps the tool set, system prompt, LLM client and agent class, and enriches each record.
 """
 
 from __future__ import annotations
@@ -14,9 +14,14 @@ import time
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
-from arag import BaseAgent
+from arag import BaseAgent, LLMClient, ToolRegistry
+from arag.tools.read_chunk import ReadChunkTool
+from research_agent.agent.prompt import build_system_prompt, load_upstream_prompt
+from research_agent.agent.tools import build_tool_registry, shared_semantic_tool
+from research_agent.baselines.naive_rag import SYSTEM_PROMPT as NAIVE_SYSTEM_PROMPT
+from research_agent.baselines.naive_rag import ChunkIndex, NaiveRAG
 from research_agent.config import RunConfig
 from research_agent.eval.subsets import sha256_file
 from research_agent.llm.client import MeteredLLMClient, UsageSummary, client_from_config
@@ -24,6 +29,17 @@ from research_agent.llm.pricing import PricingTable
 from research_agent.upstream import REPO_ROOT, load_script
 
 _BatchRunner: type = load_script("batch_runner").BatchRunner
+
+
+class MeteredAgent(Protocol):
+    """What the runner needs from an agent: A-RAG's BaseAgent or a baseline."""
+
+    @property
+    def llm(self) -> LLMClient: ...
+
+    last_result: dict[str, Any] | None
+
+    def run(self, query: str) -> dict[str, Any]: ...
 
 
 class RecordingAgent(BaseAgent):
@@ -78,6 +94,7 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
     ) -> None:
         self.run_config = run_config
         self.pricing = pricing
+        self._naive_resources: tuple[ChunkIndex, ReadChunkTool] | None = None
         super().__init__(
             config=run_config.to_arag_config(),
             questions_file=questions_file,
@@ -86,8 +103,45 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
             num_workers=num_workers,
             verbose=False,
         )
+        # Upstream __init__ loaded default.txt; rebuild it for the configured tool set.
+        if run_config.method == "naive_rag":
+            self._system_prompt = NAIVE_SYSTEM_PROMPT
+        else:
+            self._system_prompt = build_system_prompt(load_upstream_prompt(), run_config.agent)
 
-    def _create_agent(self) -> RecordingAgent:
+    def _init_shared_tools(self) -> ToolRegistry:
+        if self.run_config.method == "naive_rag":
+            return ToolRegistry()
+        return build_tool_registry(self.run_config)
+
+    def _naive_rag(self) -> NaiveRAG:
+        cfg = self.run_config
+        # Reuse the semantic_search model: a second copy would not fit next to it on 6 GB.
+        semantic = shared_semantic_tool(cfg.data, cfg.embedding)
+        if self._naive_resources is None:
+            reader = ReadChunkTool(chunks_file=cfg.data.chunks_file)
+            index = ChunkIndex.load_or_build(
+                reader,
+                cfg.data.index_dir,
+                semantic.embedding_model,
+                cfg.embedding.model,
+                cfg.embedding.batch_size,
+                semantic._embedding_lock,
+            )
+            self._naive_resources = (index, reader)
+        index, reader = self._naive_resources
+        return NaiveRAG(
+            llm_client=client_from_config(cfg.llm, self.pricing),
+            index=index,
+            reader=reader,
+            embedding_model=semantic.embedding_model,
+            embedding_lock=semantic._embedding_lock,
+            top_k=cfg.naive_rag.top_k,
+        )
+
+    def _create_agent(self) -> MeteredAgent:
+        if self.run_config.method == "naive_rag":
+            return self._naive_rag()
         return RecordingAgent(
             llm_client=client_from_config(self.run_config.llm, self.pricing),
             tools=self._shared_tools,
@@ -97,8 +151,8 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
             verbose=False,
         )
 
-    def _process_one(self, item: dict[str, Any], agent: BaseAgent) -> dict[str, Any]:
-        assert isinstance(agent, RecordingAgent) and isinstance(agent.llm, MeteredLLMClient)
+    def _process_one(self, item: dict[str, Any], agent: MeteredAgent) -> dict[str, Any]:
+        assert isinstance(agent.llm, MeteredLLMClient)
         start = time.perf_counter()
         record: dict[str, Any] = super()._process_one(item, agent)
         usage = agent.llm.usage_summary()
@@ -133,6 +187,8 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
             "git": git_state(),
             "config_fingerprint": fingerprint,
             "config": cfg.model_dump(mode="json"),
+            "tools": self._shared_tools.list_tools(),
+            "system_prompt": self._system_prompt,
             "llm_snapshot": self.pricing.resolve(cfg.llm.model),
             "judge_snapshot": self.pricing.resolve(cfg.judge.model),
             "currency": self.pricing.currency,

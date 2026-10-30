@@ -45,7 +45,7 @@ def make_config(corpus: dict[str, Path], model: str = "m") -> RunConfig:
         {
             "llm": {"model": model},
             "judge": {"model": model},
-            "agent": {"max_loops": 3},
+            "agent": {"max_loops": 3, "tools": ["keyword_search", "read_chunk"]},
             "data": {
                 "chunks_file": str(corpus["chunks"]),
                 "index_dir": str(corpus["root"] / "no_index"),
