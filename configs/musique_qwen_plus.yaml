@@ -4,13 +4,13 @@
 # API key / base URL come from .env (ARAG_API_KEY, ARAG_BASE_URL).
 
 llm:
-  model: "qwen-plus"          # resolved to a dated snapshot via configs/pricing_bailian.yaml
+  model: "qwen-plus-2025-12-01"  # pinned snapshot (alias qwen-plus may be upgraded silently)
   temperature: 0.0
   max_tokens: 16384           # same as upstream LLMClient default
   enable_thinking: false
 
 judge:                        # fixed judge, independent of the agent model
-  model: "qwen-plus"
+  model: "qwen-plus-2025-12-01"
   temperature: 0.0
   max_tokens: 16
   enable_thinking: false
