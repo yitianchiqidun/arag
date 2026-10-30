@@ -37,6 +37,14 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
 ]
+# research_agent: extensions built on top of A-RAG (see docs/upstream_changes.md)
+research = [
+    "pydantic>=2.0",
+    "python-dotenv>=1.0",
+    "torch>=2.4",
+    "types-PyYAML",
+    "types-requests",
+]
 
 [project.urls]
 Homepage = "https://github.com/Ayanami0730/arag"
@@ -47,7 +55,16 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/arag"]
+packages = ["src/arag", "research_agent"]
+
+# Local driver (Windows 572.70) supports CUDA <= 12.8; default PyPI torch targets newer CUDA.
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
 
 [tool.hatch.build.targets.sdist]
 include = ["src/arag"]
@@ -63,3 +80,8 @@ testpaths = ["tests"]
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+# Upstream A-RAG ships without type information (no py.typed).
+module = ["arag", "arag.*"]
+follow_untyped_imports = true

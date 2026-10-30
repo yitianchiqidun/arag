@@ -54,7 +54,8 @@ Pipfile.lock
 poetry.lock
 
 # Data and outputs (DO NOT COMMIT)
-data/
+data/*
+!data/subsets/
 data_*/
 results/
 outputs/
