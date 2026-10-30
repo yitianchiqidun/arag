@@ -1,0 +1,15 @@
+{
+  "source_file": "data/musique/questions.json",
+  "source_sha256": "42dfd487e7e08d0892ed94bd9e0d0e56744cd92239f41b190e156f563ab49fb4",
+  "source_size": 1000,
+  "n": 5,
+  "seed": 7,
+  "created": "2026-10-30",
+  "ids": [
+    "musique_2hop__151750_141308",
+    "musique_2hop__29349_92763",
+    "musique_3hop1__635099_131926_13165",
+    "musique_4hop3__771862_466199_695123_72134",
+    "musique_2hop__474885_22402"
+  ]
+}

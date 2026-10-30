@@ -1,0 +1,31 @@
+# Stage 0 reproduction config: A-RAG (Full) on MuSiQue with Bailian Qwen.
+# Compatible with the upstream scripts/batch_runner.py (extra keys are ignored there),
+# but run it via `python -m research_agent.eval` to get CNY cost, tokens and latency.
+# API key / base URL come from .env (ARAG_API_KEY, ARAG_BASE_URL).
+
+llm:
+  model: "qwen-plus"          # resolved to a dated snapshot via configs/pricing_bailian.yaml
+  temperature: 0.0
+  max_tokens: 16384           # same as upstream LLMClient default
+  enable_thinking: false
+
+judge:                        # fixed judge, independent of the agent model
+  model: "qwen-plus"
+  temperature: 0.0
+  max_tokens: 16
+  enable_thinking: false
+
+embedding:
+  model: "Qwen/Qwen3-Embedding-0.6B"
+  device: "cuda:0"
+  batch_size: 16
+
+agent:
+  max_loops: 15               # configs/example.yaml value (batch_runner's own default is 10)
+  max_token_budget: 128000
+
+data:
+  chunks_file: "data/musique/chunks.json"
+  index_dir: "data/musique/index"
+
+pricing_file: "configs/pricing_bailian.yaml"

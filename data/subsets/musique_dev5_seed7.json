@@ -1,0 +1,42 @@
+[
+  {
+    "id": "musique_2hop__151750_141308",
+    "source": "musique",
+    "question": "What company is the record label of Magic Christian Music part of?",
+    "answer": "Apple Corps",
+    "question_type": "",
+    "evidence": ""
+  },
+  {
+    "id": "musique_2hop__29349_92763",
+    "source": "musique",
+    "question": "What is the enrollment where the first debate between Kerry and Bush took place?",
+    "answer": "16,801",
+    "question_type": "",
+    "evidence": ""
+  },
+  {
+    "id": "musique_3hop1__635099_131926_13165",
+    "source": "musique",
+    "question": "What treaty ceded territory to the US extending west to the body of water by the city where Write This Down was formed?",
+    "answer": "Treaty of Paris",
+    "question_type": "",
+    "evidence": ""
+  },
+  {
+    "id": "musique_4hop3__771862_466199_695123_72134",
+    "source": "musique",
+    "question": "When did the town WIZE is licensed in become capitol of the state where Jackson Township is located?",
+    "answer": "1839",
+    "question_type": "",
+    "evidence": ""
+  },
+  {
+    "id": "musique_2hop__474885_22402",
+    "source": "musique",
+    "question": "How many students attend the school that granted Francis Travis a Ph.D.?",
+    "answer": "nearly 25,000",
+    "question_type": "",
+    "evidence": ""
+  }
+]

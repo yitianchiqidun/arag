@@ -1,0 +1,39 @@
+# Alibaba Cloud Bailian (Model Studio) list prices, Beijing region, CNY per 1M tokens.
+# Source: https://help.aliyun.com/zh/model-studio/model-pricing  (verified 2026-10-30)
+# Cache: https://help.aliyun.com/zh/model-studio/context-cache  -> implicit cache hit = 20% of input price
+# Tiers are selected by the prompt length of a single request (max_input_tokens is inclusive; null = no upper bound).
+# Prices are non-thinking output prices; thinking-mode output is billed differently and is not modelled here.
+# Free quota and limited-time discounts are ignored: costs here are list-price upper bounds.
+
+currency: CNY
+models:
+  qwen-plus-2025-12-01:
+    cached_input_ratio: 0.2
+    tiers:
+      - {max_input_tokens: 131072, input: 0.8, output: 2.0}
+      - {max_input_tokens: 262144, input: 2.4, output: 20.0}
+      - {max_input_tokens: null, input: 4.8, output: 48.0}
+  qwen3.7-plus-2026-05-26:
+    cached_input_ratio: 0.2
+    tiers:
+      - {max_input_tokens: 262144, input: 2.0, output: 8.0}
+      - {max_input_tokens: null, input: 6.0, output: 24.0}
+  qwen-flash-2025-07-28:
+    cached_input_ratio: 0.2
+    tiers:
+      - {max_input_tokens: 131072, input: 0.15, output: 1.5}
+      - {max_input_tokens: 262144, input: 0.6, output: 6.0}
+      - {max_input_tokens: null, input: 1.2, output: 12.0}
+  qwen3.7-flash-2026-07-15:
+    cached_input_ratio: 0.2
+    tiers:
+      - {max_input_tokens: 32768, input: 0.2, output: 0.8}
+      - {max_input_tokens: 262144, input: 0.6, output: 2.4}
+      - {max_input_tokens: null, input: 1.2, output: 4.8}
+# Aliases resolve to the snapshot they pointed to on the verification date.
+aliases:
+  qwen-plus: qwen-plus-2025-12-01
+  qwen-plus-latest: qwen-plus-2025-12-01
+  qwen3.7-plus: qwen3.7-plus-2026-05-26
+  qwen-flash: qwen-flash-2025-07-28
+  qwen3.7-flash: qwen3.7-flash-2026-07-15
