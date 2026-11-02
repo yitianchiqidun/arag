@@ -107,7 +107,9 @@ class TraceRecorder:
         strict = "error" not in record
         steps: list[Step] = []
         if entries and entries[0].get("tool_name") == "dense_retrieval":  # naive RAG
-            steps.append(Step(index=1, kind="retrieval", tool_calls=[_tool_call(entries[0])]))
+            steps.append(
+                Step(index=1, kind="retrieval", tool_calls=[tool_call_from_entry(entries[0])])
+            )
             entries = entries[1:]
 
         timings = list(self.tool_timings)
@@ -141,7 +143,7 @@ class TraceRecorder:
                     raise ValueError(f"tool call order mismatch: {name} / {entry.get('tool_name')}")
                 if entry.get("loop") != loop:
                     raise ValueError(f"tool call of loop {entry.get('loop')} found in loop {loop}")
-                tool_calls.append(_tool_call(entry, call.get("id"), latency_ms))
+                tool_calls.append(tool_call_from_entry(entry, call.get("id"), latency_ms))
 
             steps.append(
                 Step(
@@ -187,7 +189,7 @@ class TraceRecorder:
         )
 
 
-def _tool_call(
+def tool_call_from_entry(
     entry: dict[str, Any], call_id: str | None = None, latency_ms: float | None = None
 ) -> ToolCall:
     return ToolCall(

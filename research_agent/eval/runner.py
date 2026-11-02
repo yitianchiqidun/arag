@@ -27,10 +27,10 @@ from research_agent.eval.subsets import sha256_file
 from research_agent.llm.client import MeteredLLMClient, UsageSummary, client_from_config
 from research_agent.llm.pricing import PricingTable
 from research_agent.tracing.recorder import TimedToolRegistry, TraceRecorder
+from research_agent.tracing.schema import TRAJECTORIES_FILE
 from research_agent.upstream import REPO_ROOT, load_script
 
 _BatchRunner: type = load_script("batch_runner").BatchRunner
-TRAJECTORIES_FILE = "trajectories.jsonl"
 
 
 class RunAborted(RuntimeError):

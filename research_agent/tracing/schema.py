@@ -13,6 +13,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 SCHEMA_VERSION = 1
+TRAJECTORIES_FILE = "trajectories.jsonl"  # next to predictions.jsonl in each run directory
 
 StepKind = Literal["tool_calls", "answer", "forced_answer", "llm_error", "retrieval"]
 

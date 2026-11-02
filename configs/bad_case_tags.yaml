@@ -1,0 +1,32 @@
+# Bad case taxonomy for the trajectory viewer (stage 2; initial version, expected to change
+# after stage 4). labels.json stores the ids, so labels and descriptions can be reworded
+# freely, but an id must not be renamed once used.
+tags:
+  - id: not_retrieved
+    label: 没检索到相关内容
+    description: 所有工具结果里都没有出现回答所需的证据。
+  - id: retrieved_not_read
+    label: 检索到了但没有读取
+    description: 证据出现在搜索片段里，但模型没有读取对应的文本块全文。
+  - id: repeated_search_or_read
+    label: 重复检索或重复读取
+    description: 重复执行相同的搜索，或重复读取已读过的块，浪费了轮数。
+  - id: premature_stop
+    label: 过早停止
+    description: 证据还不完整（例如多跳题只查到前几跳）就给出了答案。
+  - id: wrong_evidence_or_reasoning
+    label: 证据用错或推理错误
+    description: 证据已经读到，但用错了段落、实体混淆或推理链出错。
+  - id: answer_format
+    label: 答案格式问题
+    description: 答案实质正确，但格式、粒度或多余内容导致判错。
+  - id: max_loops
+    label: 超出最大步数
+    description: 跑满最大轮数后被强制作答。
+  # Not in the plan's initial list; added for cases the plan's tags cannot describe.
+  - id: judge_or_gold_issue
+    label: 裁判误判或标准答案有问题
+    description: 回答其实是对的（或题目有歧义），是裁判或标准答案造成的错误。
+  - id: api_error
+    label: API 报错或内容审核拦截
+    description: 调用失败或被平台内容审核拦截，导致没有正常作答。
