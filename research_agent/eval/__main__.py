@@ -23,8 +23,9 @@ def _load(config_path: str) -> tuple[RunConfig, PricingTable]:
 def cmd_subset(args: argparse.Namespace) -> None:
     from research_agent.eval.subsets import make_subset
 
-    meta = make_subset(args.source, args.out, args.n, args.seed)
-    print(f"wrote {args.out}: {meta.n}/{meta.source_size} questions, seed={meta.seed}")
+    meta = make_subset(args.source, args.out, args.n, args.seed, args.exclude)
+    pool = meta.pool_size if meta.pool_size is not None else meta.source_size
+    print(f"wrote {args.out}: {meta.n}/{pool} questions, seed={meta.seed}")
 
 
 def cmd_run(args: argparse.Namespace) -> None:
@@ -84,6 +85,13 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--out", required=True)
     p.add_argument("--n", type=int, required=True)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="SUBSET",
+        help="subset file whose questions must not be drawn (repeatable)",
+    )
     p.set_defaults(func=cmd_subset)
 
     def add_common(p: argparse.ArgumentParser, needs_config: bool = True) -> None:
