@@ -10,3 +10,5 @@
 | 2026-10-30 | `pyproject.toml` | `[tool.uv.sources]` 把 torch 固定到 PyTorch 官方 cu128 源 | 本机 Windows 驱动 572.70 最高只支持 CUDA 12.8；PyPI 默认的 torch 2.15 是 CUDA 13.2 构建，`torch.cuda.is_available()` 为 False | 升级 Windows NVIDIA 驱动后可去掉此项。cu128 版本向后兼容更新的驱动，对其他机器无害。阶段 6 做 Docker 镜像时需重新评估（服务镜像可能只需 CPU 版 torch） |
 | 2026-10-30 | `pyproject.toml` | 新增 mypy override：`arag` 包允许 follow untyped imports | 上游没有 `py.typed`，mypy 默认不分析它，导致继承上游类的代码无法做类型检查 | 给上游加 `py.typed`：属于改源码目录，且上游本身类型注解不完整，加了反而报大量错误 |
 | 2026-10-30 | `.gitignore` | `data/` 改为 `data/*` 并加 `!data/subsets/` | 固定评测子集需要进版本库以保证可复现；原规则忽略整个 `data/` 目录，git 无法对被忽略目录下的文件取消忽略 | 把子集放到 `data/` 之外：与方案约定的目录结构不一致 |
+| 2026-11-02 | `.gitignore` | `results/` 改为 `/results/` | 原规则匹配任意层级的 `results` 目录，把 `docs/results/` 下要提交的对比表也忽略了 | 把对比表副本放到别的目录名下：会和“结果放在 results”这一直观约定不一致；改成只忽略根目录的运行结果更准确 |
+| 2026-11-02 | `pyproject.toml` | 新增可选依赖组 `viewer`（streamlit） | 阶段 2 的轨迹回放页面需要 Streamlit | 放进 `research` 组：阶段 6 的服务镜像会被迫带上 Streamlit 及其依赖；单独一组按需安装 |

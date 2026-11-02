@@ -45,6 +45,10 @@ research = [
     "types-PyYAML",
     "types-requests",
 ]
+# Stage 2 trajectory viewer (apps/trace_viewer.py); kept out of `research` for lean services.
+viewer = [
+    "streamlit>=1.40",
+]
 
 [project.urls]
 Homepage = "https://github.com/Ayanami0730/arag"
