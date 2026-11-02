@@ -224,13 +224,14 @@ def growth_charts(t: Trajectory) -> None:
                 scale=alt.Scale(domain=["命中缓存", "未命中"], range=SERIES[:2]),
                 legend=alt.Legend(title=None, orient="top"),
             ),
-            order=alt.Order("kind:N", sort="descending"),
+            order=alt.Order("kind_order:Q"),  # cached at the bottom, uncached on top
             tooltip=[
                 alt.Tooltip("step:O", title="步"),
                 alt.Tooltip("kind:N", title="类型"),
                 alt.Tooltip("value:Q", title="token", format=","),
             ],
         )
+        .transform_calculate(kind_order="datum.kind === '命中缓存' ? 0 : 1")
         .properties(height=220)
     )
     roles = ["system", "user", "assistant", "tool"]
