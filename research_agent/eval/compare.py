@@ -15,7 +15,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from research_agent.config import RunConfig
-from research_agent.eval.metrics import mcnemar_exact_p
+from research_agent.eval.metrics import mcnemar_exact_p, paired_diff_ci
 from research_agent.eval.summarize import (
     RunSummary,
     load_predictions,
@@ -38,6 +38,10 @@ class ComparedRun(BaseModel):
     ref_only_correct: int
     run_only_correct: int
     mcnemar_p: float
+    # 95% CI of delta_llm_acc (Newcombe paired interval), so "not significant" can be read
+    # as "the difference is within [ci_low, ci_high]" rather than "no difference".
+    ci_low: float
+    ci_high: float
 
 
 def _flatten(value: Any, prefix: str = "") -> dict[str, Any]:
@@ -97,6 +101,10 @@ def compare_runs(runs: dict[str, str | Path], reference: str) -> list[ComparedRu
             raise ValueError(f"{name} and {reference} answered different question sets")
         ref_only = sum(ref[q] and not correct[name][q] for q in ref)
         run_only = sum(correct[name][q] and not ref[q] for q in ref)
+        both = sum(ref[q] and correct[name][q] for q in ref)
+        ci_low, ci_high = paired_diff_ci(
+            both, run_only, ref_only, len(ref) - both - run_only - ref_only
+        )
         summary = summarize_run(run_dir)
         out.append(
             ComparedRun(
@@ -109,6 +117,8 @@ def compare_runs(runs: dict[str, str | Path], reference: str) -> list[ComparedRu
                 ref_only_correct=ref_only,
                 run_only_correct=run_only,
                 mcnemar_p=mcnemar_exact_p(ref_only, run_only),
+                ci_low=ci_low,
+                ci_high=ci_high,
             )
         )
     return out
@@ -121,13 +131,14 @@ def _pct(value: float | None) -> str:
 def to_markdown(rows: list[ComparedRun], reference: str) -> str:
     first = rows[0].summary
     hops = list(first.n_by_hop)
-    acc_head = ["Variant", "LLM-Acc", f"Δ vs {reference}", "McNemar p (ref-only / run-only)"]
+    acc_head = ["Variant", "LLM-Acc", f"Δ vs {reference}", "95% CI of Δ"]
+    acc_head += ["McNemar p (ref-only / run-only)"]
     acc_head += ["Cont-Acc"] + [f"{h} (n={first.n_by_hop[h]})" for h in hops]
     lines = [
         (
             f"Agent model `{first.model}`, judge `{first.judge_model}`, n = {first.n}. "
-            "LLM-Acc and Cont-Acc are over all questions; the McNemar test pairs each run with "
-            f"`{reference}` question by question."
+            "LLM-Acc and Cont-Acc are over all questions; the McNemar test and the confidence "
+            f"interval (Newcombe, paired) compare each run with `{reference}` question by question."
         ),
         "",
         "| " + " | ".join(acc_head) + " |",
@@ -140,6 +151,7 @@ def to_markdown(rows: list[ComparedRun], reference: str) -> str:
             f"**{r.name}**" if is_ref else r.name,
             f"{s.llm_acc_all:.1%}",
             "—" if is_ref else f"{r.delta_llm_acc * 100:+.1f} pp",
+            "—" if is_ref else f"[{r.ci_low * 100:+.1f}, {r.ci_high * 100:+.1f}]",
             "—" if is_ref else f"{r.mcnemar_p:.3f} ({r.ref_only_correct} / {r.run_only_correct})",
             f"{s.cont_acc_all:.1%}",
         ] + [_pct(s.llm_acc_by_hop.get(h)) for h in hops]
@@ -202,6 +214,8 @@ def to_csv(rows: list[ComparedRun]) -> str:
             ref_only_correct=r.ref_only_correct,
             run_only_correct=r.run_only_correct,
             mcnemar_p=r.mcnemar_p,
+            delta_ci_low=r.ci_low,
+            delta_ci_high=r.ci_high,
             commit=r.commit,
         )
         record.update(to_csv_row(r.summary))

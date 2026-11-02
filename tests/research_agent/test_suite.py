@@ -146,7 +146,7 @@ def test_suite_runs_every_variant_and_builds_the_table(
     assert full_meta["tools"] == ["keyword_search"]
     assert "**read_chunk**" not in full_meta["system_prompt"]
     # q1 (Paris) only right with snippets, q2 (Berlin) only right with full chunks.
-    assert "| full_chunks | 50.0% | +0.0 pp | 1.000 (1 / 1) |" in markdown
+    assert "| full_chunks | 50.0% | +0.0 pp | [" in markdown and "| 1.000 (1 / 1) |" in markdown
     assert '`agent.search_result="full_chunk"`' in markdown
     csv_header = (out / "comparison.csv").read_text().splitlines()[0]
     assert csv_header.startswith("variant,setting.agent.search_result,setting.agent.tools")

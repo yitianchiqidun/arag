@@ -1,13 +1,13 @@
-Agent model `qwen3.7-plus-2026-05-26`, judge `qwen-plus-2025-12-01`, n = 100. LLM-Acc and Cont-Acc are over all questions; the McNemar test pairs each run with `arag_full` question by question.
+Agent model `qwen3.7-plus-2026-05-26`, judge `qwen-plus-2025-12-01`, n = 100. LLM-Acc and Cont-Acc are over all questions; the McNemar test and the confidence interval (Newcombe, paired) compare each run with `arag_full` question by question.
 
-| Variant | LLM-Acc | Δ vs arag_full | McNemar p (ref-only / run-only) | Cont-Acc | 2hop (n=55) | 3hop (n=34) | 4hop (n=11) |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| naive_rag | 46.0% | -25.0 pp | 0.000 (33 / 8) | 61.0% | 47.3% | 38.2% | 63.6% |
-| **arag_full** | 71.0% | — | — | 83.0% | 78.2% | 61.8% | 63.6% |
-| arag_full_stage0 | 68.0% | -3.0 pp | 0.549 (7 / 4) | 83.0% | 74.5% | 58.8% | 63.6% |
-| wo_keyword | 66.0% | -5.0 pp | 0.383 (13 / 8) | 78.0% | 72.7% | 52.9% | 72.7% |
-| wo_semantic | 68.0% | -3.0 pp | 0.549 (7 / 4) | 78.0% | 76.4% | 58.8% | 54.5% |
-| wo_read | 69.0% | -2.0 pp | 0.791 (8 / 6) | 77.0% | 76.4% | 58.8% | 63.6% |
+| Variant | LLM-Acc | Δ vs arag_full | 95% CI of Δ | McNemar p (ref-only / run-only) | Cont-Acc | 2hop (n=55) | 3hop (n=34) | 4hop (n=11) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| naive_rag | 46.0% | -25.0 pp | [-36.0, -12.9] | 0.000 (33 / 8) | 61.0% | 47.3% | 38.2% | 63.6% |
+| **arag_full** | 71.0% | — | — | — | 83.0% | 78.2% | 61.8% | 63.6% |
+| arag_full_stage0 | 68.0% | -3.0 pp | [-9.8, +3.8] | 0.549 (7 / 4) | 83.0% | 74.5% | 58.8% | 63.6% |
+| wo_keyword | 66.0% | -5.0 pp | [-14.0, +4.1] | 0.383 (13 / 8) | 78.0% | 72.7% | 52.9% | 72.7% |
+| wo_semantic | 68.0% | -3.0 pp | [-9.8, +3.8] | 0.549 (7 / 4) | 78.0% | 76.4% | 58.8% | 54.5% |
+| wo_read | 69.0% | -2.0 pp | [-9.6, +5.6] | 0.791 (8 / 6) | 77.0% | 76.4% | 58.8% | 63.6% |
 
 | Variant | Loops | Tool calls (kw / sem / read) | Repeat read | Repeat search | Hit max loops | Input tokens | Cache hit | Retrieved tokens | Latency P50 / P95 (s) | Agent cost / 100 q (CNY) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

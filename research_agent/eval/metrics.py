@@ -66,3 +66,39 @@ def mcnemar_exact_p(b: int, c: int) -> float:
         return 1.0
     tail = sum(math.comb(n, i) for i in range(min(b, c) + 1)) / 2.0**n
     return min(1.0, 2 * tail)
+
+
+def _wilson(x: int, n: int, z: float) -> tuple[float, float]:
+    center = (x + z * z / 2) / (n + z * z)
+    half = z * math.sqrt(x * (n - x) / n + z * z / 4) / (n + z * z)
+    return center - half, center + half
+
+
+def paired_diff_ci(
+    both: int, run_only: int, ref_only: int, neither: int, z: float = 1.959964
+) -> tuple[float, float]:
+    """95% CI of ``acc(run) - acc(ref)`` on paired 0/1 outcomes (Newcombe 1998, method 10).
+
+    Square-and-add of the two Wilson intervals, corrected for the correlation between the
+    paired outcomes. Unlike the Wald interval it stays inside [-1, 1] and behaves when the
+    discordant counts are small (a few to a dozen in a 100-question table).
+    """
+    n = both + run_only + ref_only + neither
+    if n == 0:
+        raise ValueError("no questions")
+    p1, p2 = (both + run_only) / n, (both + ref_only) / n
+    l1, u1 = _wilson(both + run_only, n, z)
+    l2, u2 = _wilson(both + ref_only, n, z)
+    margins = (both + run_only) * (ref_only + neither) * (both + ref_only) * (run_only + neither)
+    cross: float = both * neither - run_only * ref_only
+    if cross > 0:  # Newcombe's correction, which keeps phi from overstating the correlation
+        cross = max(cross - n / 2, 0.0)
+    phi = cross / math.sqrt(margins) if margins else 0.0
+    delta = p1 - p2
+    low = delta - math.sqrt(
+        max(0.0, (p1 - l1) ** 2 - 2 * phi * (p1 - l1) * (u2 - p2) + (u2 - p2) ** 2)
+    )
+    high = delta + math.sqrt(
+        max(0.0, (u1 - p1) ** 2 - 2 * phi * (u1 - p1) * (p2 - l2) + (p2 - l2) ** 2)
+    )
+    return max(-1.0, low), min(1.0, high)
