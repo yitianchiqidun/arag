@@ -57,7 +57,7 @@ poetry.lock
 data/*
 !data/subsets/
 data_*/
-results/
+/results/
 outputs/
 logs/
 *.pkl
