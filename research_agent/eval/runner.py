@@ -26,9 +26,11 @@ from research_agent.config import RunConfig
 from research_agent.eval.subsets import sha256_file
 from research_agent.llm.client import MeteredLLMClient, UsageSummary, client_from_config
 from research_agent.llm.pricing import PricingTable
+from research_agent.tracing.recorder import TimedToolRegistry, TraceRecorder
 from research_agent.upstream import REPO_ROOT, load_script
 
 _BatchRunner: type = load_script("batch_runner").BatchRunner
+TRAJECTORIES_FILE = "trajectories.jsonl"
 
 
 class RunAborted(RuntimeError):
@@ -108,6 +110,7 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
         self.pricing = pricing
         self._naive_resources: tuple[ChunkIndex, ReadChunkTool] | None = None
         self._abort_reason: str | None = None
+        self._recorders: dict[MeteredAgent, TraceRecorder] = {}
         super().__init__(
             config=run_config.to_arag_config(),
             questions_file=questions_file,
@@ -153,16 +156,26 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
         )
 
     def _create_agent(self) -> MeteredAgent:
+        # Upstream creates every agent in the main thread before submitting the questions,
+        # so the recorder map is only written here and read by the worker that owns the agent.
+        agent: MeteredAgent
         if self.run_config.method == "naive_rag":
-            return self._naive_rag()
-        return RecordingAgent(
-            llm_client=client_from_config(self.run_config.llm, self.pricing),
-            tools=self._shared_tools,
-            system_prompt=self._system_prompt,
-            max_loops=self.run_config.agent.max_loops,
-            max_token_budget=self.run_config.agent.max_token_budget,
-            verbose=False,
-        )
+            recorder = TraceRecorder(agent_has_tools=False)
+            agent = self._naive_rag()
+        else:
+            recorder = TraceRecorder(agent_has_tools=True)
+            agent = RecordingAgent(
+                llm_client=client_from_config(self.run_config.llm, self.pricing),
+                tools=TimedToolRegistry(self._shared_tools, recorder),
+                system_prompt=self._system_prompt,
+                max_loops=self.run_config.agent.max_loops,
+                max_token_budget=self.run_config.agent.max_token_budget,
+                verbose=False,
+            )
+        assert isinstance(agent.llm, MeteredLLMClient)
+        agent.llm.observer = recorder.on_llm_call
+        self._recorders[agent] = recorder
+        return agent
 
     def _process_one(self, item: dict[str, Any], agent: MeteredAgent) -> dict[str, Any]:
         assert isinstance(agent.llm, MeteredLLMClient)
@@ -187,7 +200,18 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
             tool_calls=dict(Counter(step["tool_name"] for step in record["trajectory"])),
             llm_errors=[r.error for r in agent.llm.records if r.error],
         )
+        trajectory = self._recorders.pop(agent).build(
+            record, self.run_config.method, self.run_config.llm.model
+        )
+        # Written before upstream appends the prediction: after a crash in between, the
+        # question is rerun and the loader keeps the last trajectory of each question.
+        with self.write_lock, open(self.trajectories_file, "a", encoding="utf-8") as f:
+            f.write(trajectory.model_dump_json() + "\n")
         return record
+
+    @property
+    def trajectories_file(self) -> Path:
+        return Path(self.output_dir) / TRAJECTORIES_FILE
 
     def _write_run_meta(self) -> None:
         meta_path = Path(self.output_dir) / "run_meta.json"
@@ -228,4 +252,13 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
                 f"run stopped by an account-level API error ({self._abort_reason}); the "
                 "questions it hit were not recorded. Fix the account, then rerun the same "
                 "command to resume."
+            )
+        # Upstream only prints questions whose processing raised; make a gap an error.
+        done = self._load_completed_qids()
+        missing = [q.get("qid") or q.get("id") for q in self.questions]
+        missing = [qid for qid in missing if qid not in done]
+        if missing:
+            raise RuntimeError(
+                f"{len(missing)} questions were not recorded (see 'Error processing' above), "
+                f"e.g. {missing[:3]}; rerun the same command to resume"
             )

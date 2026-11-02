@@ -57,6 +57,14 @@ class LLMCallRecord(BaseModel):
     account_error: bool = False
 
 
+# Called after every chat() with (messages sent, tools offered, record, assistant message or
+# None on failure); used by research_agent.tracing to record trajectories.
+CallObserver = Callable[
+    [list[dict[str, Any]], list[dict[str, Any]] | None, LLMCallRecord, dict[str, Any] | None],
+    None,
+]
+
+
 class UsageSummary(BaseModel):
     calls: int
     failed_calls: int
@@ -75,7 +83,7 @@ class MeteredLLMClient(LLMClient):
       built-in USD table, which has no Qwen entries;
     - ``extra_body`` is merged into the request (e.g. ``{"enable_thinking": False}``);
     - 429/5xx/timeouts are retried with exponential backoff;
-    - every call is appended to ``self.records``.
+    - every call is appended to ``self.records`` and passed to ``self.observer`` if set.
     """
 
     def __init__(
@@ -107,6 +115,7 @@ class MeteredLLMClient(LLMClient):
         self.backoff_base_s = backoff_base_s
         self._sleep = sleep
         self.records: list[LLMCallRecord] = []
+        self.observer: CallObserver | None = None
         self._lock = threading.Lock()
 
     def calculate_cost(self, usage: dict[str, Any]) -> float:
@@ -175,14 +184,15 @@ class MeteredLLMClient(LLMClient):
         try:
             result = self._post_with_retry(payload, attempts)
         except Exception as e:
-            self._append(
-                LLMCallRecord(
-                    latency_ms=(time.perf_counter() - start) * 1000,
-                    attempts=attempts[0],
-                    error=f"{type(e).__name__}: {e}"[:500],
-                    account_error=isinstance(e, AccountError),
-                )
+            failed = LLMCallRecord(
+                latency_ms=(time.perf_counter() - start) * 1000,
+                attempts=attempts[0],
+                error=f"{type(e).__name__}: {e}"[:500],
+                account_error=isinstance(e, AccountError),
             )
+            self._append(failed)
+            if self.observer is not None:
+                self.observer(messages, tools, failed, None)
             raise
         latency_ms = (time.perf_counter() - start) * 1000
 
@@ -191,18 +201,19 @@ class MeteredLLMClient(LLMClient):
         message = choice["message"]
         cost = self.calculate_cost(usage)
         details = usage.get("prompt_tokens_details") or {}
-        self._append(
-            LLMCallRecord(
-                latency_ms=latency_ms,
-                attempts=attempts[0],
-                prompt_tokens=usage.get("prompt_tokens", 0) or 0,
-                completion_tokens=usage.get("completion_tokens", 0) or 0,
-                cached_tokens=details.get("cached_tokens", 0) or 0,
-                cost=cost,
-                finish_reason=choice.get("finish_reason"),
-                response_text=(message.get("content") or "")[:500],
-            )
+        record = LLMCallRecord(
+            latency_ms=latency_ms,
+            attempts=attempts[0],
+            prompt_tokens=usage.get("prompt_tokens", 0) or 0,
+            completion_tokens=usage.get("completion_tokens", 0) or 0,
+            cached_tokens=details.get("cached_tokens", 0) or 0,
+            cost=cost,
+            finish_reason=choice.get("finish_reason"),
+            response_text=(message.get("content") or "")[:500],
         )
+        self._append(record)
+        if self.observer is not None:
+            self.observer(messages, tools, record, message)
         return {
             "message": message,
             "input_tokens": usage.get("prompt_tokens", 0),

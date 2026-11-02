@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -128,6 +129,7 @@ class NaiveRAG:
 
     def run(self, query: str) -> dict[str, Any]:
         self.last_result = None
+        start = time.perf_counter()
         with self.embedding_lock:
             query_embedding = self.embedding_model.encode([query], normalize_embeddings=True)[0]
         hits = self.index.search(np.asarray(query_embedding, dtype=np.float32), self.top_k)
@@ -135,6 +137,7 @@ class NaiveRAG:
         retrieved_tokens = sum(
             len(self.reader.tokenizer.encode(self.reader.chunks_dict[cid])) for cid in chunk_ids
         )
+        retrieval_ms = (time.perf_counter() - start) * 1000
 
         response = self.llm.chat(messages=self.build_messages(query, chunk_ids), tools=None)
         step = {
@@ -144,6 +147,7 @@ class NaiveRAG:
             "tool_result": json.dumps([{"chunk_id": c, "score": round(s, 4)} for c, s in hits]),
             "retrieved_tokens": retrieved_tokens,
             "chunks_found": len(hits),
+            "latency_ms": round(retrieval_ms, 1),
         }
         result = {
             "answer": response["message"].get("content") or "",
