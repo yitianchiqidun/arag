@@ -97,3 +97,33 @@ def test_retries_timeouts(env_api: None, monkeypatch: pytest.MonkeyPatch) -> Non
     client, _ = make_client()
     assert client.chat([{"role": "user", "content": "q"}])["message"]["content"] == "ok"
     assert client.records[0].attempts == 2
+
+
+@pytest.mark.parametrize(
+    ("status", "body", "account"),
+    [
+        (400, {"error": {"code": "Arrearage", "message": "account in arrears"}}, True),
+        (401, {"error": {"code": "InvalidApiKey", "message": "invalid key"}}, True),
+        (403, {"code": "Model.AccessDenied", "message": "no access"}, True),
+        (400, {"error": {"code": "DataInspectionFailed", "message": "blocked"}}, False),
+        (400, {"error": "bad"}, False),
+    ],
+)
+def test_account_errors_are_flagged_and_not_retried(
+    env_api: None,
+    monkeypatch: pytest.MonkeyPatch,
+    status: int,
+    body: dict[str, object],
+    account: bool,
+) -> None:
+    post = ScriptedPost([FakeResponse(status, body)])
+    monkeypatch.setattr(client_mod.requests, "post", post)
+    client, sleeps = make_client()
+
+    with pytest.raises(requests.HTTPError) as excinfo:
+        client.chat([{"role": "user", "content": "q"}])
+
+    assert isinstance(excinfo.value, client_mod.AccountError) is account
+    assert len(post.payloads) == 1 and sleeps == []
+    (rec,) = client.records
+    assert rec.account_error is account and rec.error is not None

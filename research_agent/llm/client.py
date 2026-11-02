@@ -16,6 +16,30 @@ from research_agent.config import LLMConfig
 from research_agent.llm.pricing import ModelPricing, PricingTable
 
 RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
+# Failures of the account or key rather than of one request: no other question can succeed
+# either, so the run should stop instead of recording them as wrong answers.
+ACCOUNT_ERROR_STATUS = frozenset({401, 403, 404})
+ACCOUNT_ERROR_CODES = frozenset({"Arrearage", "InvalidApiKey"})
+
+
+class AccountError(requests.HTTPError):
+    """Arrears, an invalid key or a model the account cannot use (see ACCOUNT_ERROR_*)."""
+
+
+def _error_code(response: requests.Response) -> str | None:
+    """``error.code`` of an OpenAI-compatible error body (DashScope also sets ``code``)."""
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    if not isinstance(body, dict):
+        return None
+    error = body.get("error")
+    if isinstance(error, dict):
+        code = error.get("code") or error.get("type")
+    else:
+        code = body.get("code")
+    return code if isinstance(code, str) else None
 
 
 class LLMCallRecord(BaseModel):
@@ -30,6 +54,7 @@ class LLMCallRecord(BaseModel):
     finish_reason: str | None = None
     response_text: str | None = None
     error: str | None = None
+    account_error: bool = False
 
 
 class UsageSummary(BaseModel):
@@ -122,9 +147,13 @@ class MeteredLLMClient(LLMClient):
                 if response.status_code in RETRYABLE_STATUS and attempts[0] <= self.max_retries:
                     raise _Retryable(f"HTTP {response.status_code}: {response.text[:200]}")
                 if not response.ok:
-                    raise requests.HTTPError(
-                        f"HTTP {response.status_code}: {response.text[:300]}", response=response
-                    )
+                    message = f"HTTP {response.status_code}: {response.text[:300]}"
+                    if (
+                        response.status_code in ACCOUNT_ERROR_STATUS
+                        or _error_code(response) in ACCOUNT_ERROR_CODES
+                    ):
+                        raise AccountError(message, response=response)
+                    raise requests.HTTPError(message, response=response)
                 body: dict[str, Any] = response.json()
                 return body
             except (_Retryable, requests.Timeout, requests.ConnectionError):
@@ -151,6 +180,7 @@ class MeteredLLMClient(LLMClient):
                     latency_ms=(time.perf_counter() - start) * 1000,
                     attempts=attempts[0],
                     error=f"{type(e).__name__}: {e}"[:500],
+                    account_error=isinstance(e, AccountError),
                 )
             )
             raise

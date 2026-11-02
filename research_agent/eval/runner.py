@@ -31,6 +31,16 @@ from research_agent.upstream import REPO_ROOT, load_script
 _BatchRunner: type = load_script("batch_runner").BatchRunner
 
 
+class RunAborted(RuntimeError):
+    """An account-level API error stopped the run (llm.client.AccountError).
+
+    Upstream BatchRunner writes a failed question as an ``Error: ...`` answer and skips it on
+    resume, so running out of balance mid-run would turn every remaining question into a
+    recorded wrong answer. Questions hit by such an error are not written instead, and the
+    run raises at the end, so the same command resumes them once the account is fixed.
+    """
+
+
 class MeteredAgent(Protocol):
     """What the runner needs from an agent: A-RAG's BaseAgent or a baseline."""
 
@@ -97,6 +107,7 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
         self.run_config = run_config
         self.pricing = pricing
         self._naive_resources: tuple[ChunkIndex, ReadChunkTool] | None = None
+        self._abort_reason: str | None = None
         super().__init__(
             config=run_config.to_arag_config(),
             questions_file=questions_file,
@@ -155,8 +166,14 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
 
     def _process_one(self, item: dict[str, Any], agent: MeteredAgent) -> dict[str, Any]:
         assert isinstance(agent.llm, MeteredLLMClient)
+        if self._abort_reason is not None:
+            raise RunAborted(f"skipped after an account-level error: {self._abort_reason}")
         start = time.perf_counter()
         record: dict[str, Any] = super()._process_one(item, agent)
+        account_errors = [r.error for r in agent.llm.records if r.account_error]
+        if account_errors:
+            self._abort_reason = str(account_errors[0])
+            raise RunAborted(f"account-level error, not recorded: {self._abort_reason}")
         usage = agent.llm.usage_summary()
         record.update(
             model=self.run_config.llm.model,
@@ -206,3 +223,9 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
     def run(self) -> None:
         self._write_run_meta()
         super().run()
+        if self._abort_reason is not None:
+            raise RunAborted(
+                f"run stopped by an account-level API error ({self._abort_reason}); the "
+                "questions it hit were not recorded. Fix the account, then rerun the same "
+                "command to resume."
+            )

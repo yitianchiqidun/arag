@@ -7,11 +7,12 @@ import pytest
 
 from research_agent.config import RunConfig
 from research_agent.eval import runner as runner_mod
-from research_agent.eval.runner import MeteredBatchRunner, termination_reason
+from research_agent.eval.runner import MeteredBatchRunner, RunAborted, termination_reason
+from research_agent.llm import client as client_mod
 from research_agent.llm.client import MeteredLLMClient, UsageSummary
 from research_agent.llm.pricing import PricingTable
 
-from .fakes import PLUS_PRICING, completion, tool_call
+from .fakes import PLUS_PRICING, FakeResponse, ScriptedPost, completion, tool_call
 
 
 def usage(failed: int = 0) -> UsageSummary:
@@ -116,3 +117,33 @@ def test_runner_refuses_to_mix_configs(
         MeteredBatchRunner(
             make_config(tiny_corpus, model="m2"), pricing, str(tiny_corpus["questions"]), str(out)
         ).run()
+
+
+def test_account_error_stops_the_run_without_recording_wrong_answers(
+    env_api: None, tiny_corpus: dict[str, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pricing = PricingTable(currency="CNY", models={"m": PLUS_PRICING})
+    out = tmp_path / "run"
+    arrears = FakeResponse(400, {"error": {"code": "Arrearage", "message": "in arrears"}})
+
+    def broke(cfg: object, pricing: object) -> MeteredLLMClient:
+        client = MeteredLLMClient(model="m", pricing=PLUS_PRICING)
+        monkeypatch.setattr(client_mod.requests, "post", ScriptedPost([arrears] * 10))
+        return client
+
+    monkeypatch.setattr(runner_mod, "client_from_config", broke)
+    with pytest.raises(RunAborted, match="Arrearage"):
+        MeteredBatchRunner(
+            make_config(tiny_corpus), pricing, str(tiny_corpus["questions"]), str(out)
+        ).run()
+    predictions = out / "predictions.jsonl"
+    assert not predictions.exists() or predictions.read_text() == ""
+
+    # After topping up, the same command resumes and answers every question once.
+    scripted_client_factory(monkeypatch)
+    MeteredBatchRunner(
+        make_config(tiny_corpus), pricing, str(tiny_corpus["questions"]), str(out)
+    ).run()
+    records = [json.loads(line) for line in predictions.read_text().splitlines()]
+    assert sorted(r["qid"] for r in records) == ["q1", "q2"]
+    assert all(r["pred_answer"] == "Paris" for r in records)
