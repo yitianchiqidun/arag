@@ -49,6 +49,11 @@ research = [
 viewer = [
     "streamlit>=1.40",
 ]
+# Stage 5 TiDB tools (research_agent/tidb): MySQL protocol client.
+tidb = [
+    "pymysql>=1.1",
+    "types-PyMySQL",
+]
 
 [project.urls]
 Homepage = "https://github.com/Ayanami0730/arag"
