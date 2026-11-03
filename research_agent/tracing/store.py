@@ -32,6 +32,7 @@ class RunInfo:
     model: str
     tools: tuple[str, ...]  # tools offered to the agent ("dense_retrieval" for naive RAG)
     recorded: bool  # has trajectories.jsonl
+    chunks_file: str  # as configured (relative to the repo root)
 
 
 def find_runs(root: str | Path) -> list[Path]:
@@ -51,6 +52,7 @@ def run_info(run_dir: str | Path) -> RunInfo:
         model=cfg.llm.model,
         tools=tuple(meta.get("tools") or tools),
         recorded=(run_dir / TRAJECTORIES_FILE).exists(),
+        chunks_file=cfg.data.chunks_file,
     )
 
 

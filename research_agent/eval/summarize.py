@@ -12,6 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from research_agent.eval.citations import CitationStats, citation_stats, load_chunk_refs
 from research_agent.eval.metrics import RepeatCounts, hop_group, repeat_counts
 
 
@@ -51,6 +52,8 @@ class RunSummary(BaseModel):
     n_by_hop: dict[str, int]
     agent_cost: float
     judge_cost: float
+    # None when the run's chunks file is not available locally.
+    citations: CitationStats | None = None
 
     @property
     def total_cost(self) -> float:
@@ -110,6 +113,10 @@ def summarize_run(run_dir: str | Path) -> RunSummary:
         if group:
             by_hop[group].append(float(r["llm_accuracy"]))
     termination = Counter(r.get("termination", "unknown") for r in records)
+    chunks_file = run_meta.get("config", {}).get("data", {}).get("chunks_file")
+    citations = None
+    if chunks_file and Path(chunks_file).exists():
+        citations = citation_stats(records, load_chunk_refs(chunks_file))
 
     def mean(key: str) -> float:
         return sum(float(r.get(key, 0) or 0) for r in records) / n
@@ -153,11 +160,21 @@ def summarize_run(run_dir: str | Path) -> RunSummary:
         n_by_hop={k: len(v) for k, v in sorted(by_hop.items())},
         agent_cost=sum(float(r.get("total_cost", 0) or 0) for r in records),
         judge_cost=float(judge_meta["usage"]["cost"]),
+        citations=citations,
     )
 
 
 def _rate(value: float | None) -> str:
     return "—" if value is None else f"{value:.1%}"
+
+
+def _citations(c: CitationStats | None) -> str:
+    if c is None:
+        return "—"
+    text = f"{c.answers_citing:.1%} / {_rate(c.cited_read)} / {c.cited_unseen}"
+    if c.evidence_n:
+        text += f"; answers citing a gold evidence chunk {_rate(c.evidence_cited)}"
+    return text
 
 
 def to_markdown(s: RunSummary) -> str:
@@ -187,6 +204,10 @@ def to_markdown(s: RunSummary) -> str:
         ),
         ("Termination reasons", ", ".join(f"{k} {v}" for k, v in sorted(s.termination.items()))),
         ("Hit max loops", f"{s.max_loops_rate:.1%}"),
+        (
+            "Answers citing a chunk / citations read in full / citations never shown",
+            _citations(s.citations),
+        ),
         (
             f"Cost ({s.currency}) agent + judge = total",
             f"{s.agent_cost:.3f} + {s.judge_cost:.3f} = {s.total_cost:.3f}",

@@ -23,6 +23,7 @@ from research_agent.agent.tools import build_tool_registry, shared_semantic_tool
 from research_agent.baselines.naive_rag import SYSTEM_PROMPT as NAIVE_SYSTEM_PROMPT
 from research_agent.baselines.naive_rag import ChunkIndex, NaiveRAG
 from research_agent.config import RunConfig
+from research_agent.eval.citations import load_chunk_refs, record_citations
 from research_agent.eval.subsets import sha256_file
 from research_agent.llm.client import MeteredLLMClient, UsageSummary, client_from_config
 from research_agent.llm.pricing import PricingTable
@@ -111,6 +112,7 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
         self._naive_resources: tuple[ChunkIndex, ReadChunkTool] | None = None
         self._abort_reason: str | None = None
         self._recorders: dict[MeteredAgent, TraceRecorder] = {}
+        self._chunk_refs = load_chunk_refs(run_config.data.chunks_file)
         super().__init__(
             config=run_config.to_arag_config(),
             questions_file=questions_file,
@@ -199,7 +201,10 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
             termination=termination_reason(agent.last_result, usage),
             tool_calls=dict(Counter(step["tool_name"] for step in record["trajectory"])),
             llm_errors=[r.error for r in agent.llm.records if r.error],
+            citations=[c.model_dump() for c in record_citations(record, self._chunk_refs)],
         )
+        if item.get("evidence_chunks"):  # built evalsets carry their gold evidence
+            record["evidence_chunks"] = list(item["evidence_chunks"])
         trajectory = self._recorders.pop(agent).build(
             record, self.run_config.method, self.run_config.llm.model
         )

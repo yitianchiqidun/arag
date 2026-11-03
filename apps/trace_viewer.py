@@ -16,6 +16,12 @@ import altair as alt
 import pandas as pd  # type: ignore[import-untyped]
 import streamlit as st
 
+from research_agent.eval.citations import (
+    ChunkRef,
+    load_chunk_refs,
+    resolve_citations,
+    shown_chunk_ids,
+)
 from research_agent.tracing.labels import LabelStore, Taxonomy
 from research_agent.tracing.review import (
     TrajectoryFilter,
@@ -150,11 +156,43 @@ def pick(shown: list[Trajectory]) -> Trajectory:
     return by_id[qid]
 
 
-def header(t: Trajectory) -> None:
+@st.cache_data(show_spinner=False)
+def chunk_refs(chunks_file: str) -> dict[str, ChunkRef]:
+    path = Path(chunks_file)
+    return load_chunk_refs(path) if path.exists() else {}
+
+
+CITATION_STATUS = {
+    "read": "读过全文",
+    "snippet": "只看过搜索片段",
+    "unseen": "从未出现过",
+    "unknown": "不存在的块",
+}
+
+
+def citations_view(t: Trajectory, refs: dict[str, ChunkRef]) -> None:
+    full, snippet = shown_chunk_ids(
+        (c.tool_name, c.tool_result) for s in t.steps for c in s.tool_calls
+    )
+    citations = resolve_citations(t.final_answer, refs, full, snippet)
+    if not citations:
+        st.caption("答案没有引用任何块。")
+        return
+    lines = [
+        f"- Chunk {c.chunk_id}"
+        + (f"：{c.label()}" if c.doc else "")
+        + f"（{CITATION_STATUS[c.status]}）"
+        for c in citations
+    ]
+    st.markdown("**答案引用**\n" + "\n".join(lines))
+
+
+def header(t: Trajectory, refs: dict[str, ChunkRef]) -> None:
     st.markdown(f"**问题**：{t.question}")
     left, right = st.columns(2)
     left.markdown(f"**标准答案**：{_gold(t)}")
     right.markdown(f"**模型答案**：{t.final_answer or '（空）'}")
+    citations_view(t, refs)
     verdict = {True: "正确", False: "错误", None: "未判分"}[t.correct]
     contain = {True: "包含", False: "不包含", None: "—"}[t.contain_correct]
     cols = st.columns(6)
@@ -339,7 +377,7 @@ def main() -> None:
         return
     overview(shown, store, taxonomy)
     t = pick(shown)
-    header(t)
+    header(t, chunk_refs(info.chunks_file))
     labelling(t, store, taxonomy, info)
     growth_charts(t)
     steps_view(t)
