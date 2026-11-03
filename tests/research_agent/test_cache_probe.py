@@ -3,7 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from research_agent.eval.cache_probe import FORCE_PROMPT, cases, loop_prefix, run_probe
+from research_agent.eval.cache_probe import (
+    FORCE_PROMPT,
+    cases,
+    force_messages,
+    loop_prefix,
+    run_probe,
+)
 from research_agent.llm.client import MeteredLLMClient
 
 from .fakes import PLUS_PRICING, completion
@@ -43,9 +49,11 @@ def test_each_conversation_serves_one_variant() -> None:
         ("no_tools", "q0"),
         ("tool_choice_none", "q1"),
         ("tools_auto", "q2"),
-        ("no_tools", "q3"),
-        ("tool_choice_none", "q4"),
-        ("tools_auto", "q5"),
+        ("tools_auto_in_tool_result", "q3"),
+        ("no_tools", "q4"),
+        ("tool_choice_none", "q5"),
+        ("tools_auto", "q6"),
+        ("tools_auto_in_tool_result", "q7"),
     ]
 
 
@@ -78,3 +86,21 @@ def test_probe_sends_each_variant_and_records_the_cache(env_api: None, tmp_path:
     summary = (tmp_path / "summary.md").read_text()
     assert "| no_tools | 1 | 1,000 | 0% |" in summary
     assert len((tmp_path / "results.jsonl").read_text().splitlines()) == 3
+
+
+def test_cases_can_skip_used_conversations_and_pick_variants() -> None:
+    picked = cases([trajectory(f"q{i}") for i in range(6)], 2, ["tools_auto"], skip=3)
+    assert [(v, t["question_id"]) for v, t in picked] == [
+        ("tools_auto", "q3"),
+        ("tools_auto", "q4"),
+    ]
+
+
+def test_force_instruction_can_ride_on_the_last_tool_result() -> None:
+    prefix = loop_prefix(trajectory("q1"))
+    assert prefix is not None
+    in_tool = force_messages(prefix, "tool")
+    assert [m["role"] for m in in_tool] == ["system", "user", "assistant", "tool"]
+    assert in_tool[-1]["content"] == "result\n\n" + FORCE_PROMPT
+    assert prefix[-1]["content"] == "result"  # the recorded messages are not changed
+    assert force_messages(prefix, "user")[-1] == {"role": "user", "content": FORCE_PROMPT}

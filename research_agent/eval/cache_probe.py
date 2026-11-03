@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -35,11 +36,15 @@ FORCE_PROMPT = (
     "You MUST now provide a final answer based on the information you have gathered so far. "
     "Do NOT call any more tools. Synthesize the available information and respond directly."
 )
-# variant -> (send the tools, tool_choice)
-VARIANTS: dict[str, tuple[bool, str | None]] = {
-    "no_tools": (False, None),  # upstream
-    "tool_choice_none": (True, "none"),
-    "tools_auto": (True, None),
+# variant -> (send the tools, tool_choice, where the instruction goes: "user" message or
+# appended to the last "tool" result). Qwen3-style chat templates render the assistant turns
+# before the last user message differently from those after it, so a new user message may
+# change the whole conversation after the question, not just its end.
+VARIANTS: dict[str, tuple[bool, str | None, str]] = {
+    "no_tools": (False, None, "user"),  # upstream
+    "tool_choice_none": (True, "none", "user"),
+    "tools_auto": (True, None, "user"),
+    "tools_auto_in_tool_result": (True, None, "tool"),
 }
 
 
@@ -65,25 +70,52 @@ def loop_prefix(trajectory: dict[str, Any]) -> list[dict[str, Any]] | None:
     return None
 
 
-def cases(trajectories: list[dict[str, Any]], per_variant: int) -> list[tuple[str, dict[str, Any]]]:
-    """(variant, trajectory) pairs: forced-answer conversations in question-id order, dealt
-    to the variants in turn."""
+def cases(
+    trajectories: list[dict[str, Any]],
+    per_variant: int,
+    variants: list[str] | None = None,
+    skip: int = 0,
+) -> list[tuple[str, dict[str, Any]]]:
+    """(variant, trajectory) pairs: forced-answer conversations in question-id order, after the
+    first ``skip`` (used by an earlier probe, so their prefixes may be cached), dealt to the
+    variants in turn."""
     forced = sorted(
         (t for t in trajectories if loop_prefix(t) is not None and t.get("tools")),
         key=lambda t: str(t["question_id"]),
-    )
-    names = list(VARIANTS)
+    )[skip:]
+    names = variants or list(VARIANTS)
     return [(names[i % len(names)], t) for i, t in enumerate(forced[: per_variant * len(names)])]
 
 
-def probe_one(client: MeteredLLMClient, variant: str, trajectory: dict[str, Any]) -> ProbeResult:
+def force_messages(prefix: list[dict[str, Any]], place: str) -> list[dict[str, Any]]:
+    """The forced request: the instruction as a new user message, or appended to the last
+    tool result (which must end the prefix)."""
+    if place == "user":
+        return [*prefix, {"role": "user", "content": FORCE_PROMPT}]
+    last = prefix[-1]
+    if last.get("role") != "tool":
+        raise ValueError("the loop prefix does not end with a tool result")
+    return [*prefix[:-1], {**last, "content": f"{last.get('content') or ''}\n\n{FORCE_PROMPT}"}]
+
+
+def probe_one(
+    client: MeteredLLMClient,
+    variant: str,
+    trajectory: dict[str, Any],
+    warm_max_tokens: int | None = 1,
+    pause_s: float = 0.0,
+) -> ProbeResult:
+    """``warm_max_tokens`` None lets the warm-up generate as the loop did (its tool calls);
+    ``pause_s`` stands for the tool execution between the loop's last call and the forced one."""
     prefix = loop_prefix(trajectory)
     assert prefix is not None
     tools = trajectory["tools"]
-    client.chat(prefix, tools=tools, temperature=0.0, max_tokens=1)  # the loop request again
-    send_tools, tool_choice = VARIANTS[variant]
+    # The loop request again (max_tokens 0 or None: the config's limit).
+    client.chat(prefix, tools=tools, temperature=0.0, max_tokens=warm_max_tokens)
+    time.sleep(pause_s)
+    send_tools, tool_choice, place = VARIANTS[variant]
     forced = client.chat(
-        [*prefix, {"role": "user", "content": FORCE_PROMPT}],
+        force_messages(prefix, place),
         tools=tools if send_tools else None,
         temperature=0.0,
         tool_choice=tool_choice,
@@ -127,12 +159,16 @@ def run_probe(
     new_client: Callable[[], MeteredLLMClient],
     per_variant: int,
     out: Path,
+    variants: list[str] | None = None,
+    skip: int = 0,
+    warm_max_tokens: int | None = 1,
+    pause_s: float = 0.0,
 ) -> list[ProbeResult]:
     out.mkdir(parents=True, exist_ok=True)
     results = []
-    for variant, trajectory in cases(trajectories, per_variant):
+    for variant, trajectory in cases(trajectories, per_variant, variants, skip):
         client = new_client()
-        results.append(probe_one(client, variant, trajectory))
+        results.append(probe_one(client, variant, trajectory, warm_max_tokens, pause_s))
     (out / "results.jsonl").write_text(
         "".join(r.model_dump_json() + "\n" for r in results), encoding="utf-8"
     )
@@ -147,6 +183,12 @@ def main() -> None:
     parser.add_argument("run_dir", help="a run with recorded trajectories (same model is used)")
     parser.add_argument("--per-variant", type=int, default=5)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--variants", default=None, help=f"comma-separated, of {list(VARIANTS)}")
+    parser.add_argument("--skip", type=int, default=0, help="conversations to skip (used before)")
+    parser.add_argument(
+        "--warm-max-tokens", type=int, default=1, help="0: generate as the loop did"
+    )
+    parser.add_argument("--pause-s", type=float, default=0.0)
     args = parser.parse_args()
     load_env()
     run_dir = Path(args.run_dir)
@@ -155,7 +197,14 @@ def main() -> None:
     path = run_dir / TRAJECTORIES_FILE
     trajectories = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     results = run_probe(
-        trajectories, lambda: client_from_config(cfg.llm, pricing), args.per_variant, Path(args.out)
+        trajectories,
+        lambda: client_from_config(cfg.llm, pricing),
+        args.per_variant,
+        Path(args.out),
+        args.variants.split(",") if args.variants else None,
+        args.skip,
+        args.warm_max_tokens or None,
+        args.pause_s,
     )
     print(summary_markdown(results))
     print(f"cost {sum(r.forced_cost + r.warm_cost for r in results):.4f}")
