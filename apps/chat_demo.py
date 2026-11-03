@@ -1,7 +1,8 @@
 """Chat demo of the TiDB operations assistant (stage 6).
 
 Run with ``uv run streamlit run apps/chat_demo.py``. The assistant comes from
-``configs/assistant.yaml`` (``CHAT_DEMO_CONFIG`` overrides it); ``CHAT_DEMO_FACTORY``
+``configs/assistant.yaml`` (``CHAT_DEMO_CONFIG`` overrides it); with ``CHAT_DEMO_API_URL`` the
+page talks to the HTTP service instead (stage 9, docker compose); ``CHAT_DEMO_FACTORY``
 ("module:function") replaces the factory, which tests use to inject fake services.
 
 The page streams the events of a turn: the route, each tool call and result, the answer
@@ -32,6 +33,11 @@ st.set_page_config(page_title="TiDB 运维助手", layout="wide")
 @st.cache_resource(show_spinner="加载助手（嵌入模型和索引）…")
 def get_app() -> Any:
     factory = os.environ.get("CHAT_DEMO_FACTORY")
+    api = os.environ.get("CHAT_DEMO_API_URL")
+    if api:
+        from research_agent.service.client import ApiClient
+
+        return ApiClient(api)
     if factory:
         module, name = factory.split(":")
         return getattr(importlib.import_module(module), name)()

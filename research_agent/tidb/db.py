@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class TiDBConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    host: str = "127.0.0.1"
+    host: str = Field(default_factory=lambda: os.environ.get("TIDB_HOST", "127.0.0.1"))
     port: int = 4000
     database: str = "shop"
     readonly_user: str = "agent_ro"
