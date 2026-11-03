@@ -1,0 +1,352 @@
+[
+ {
+  "id": "symptom_01",
+  "group": "symptom",
+  "question": "订单列表页这两天打开要等十几秒，以前一两秒就出来了。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_02",
+  "group": "symptom",
+  "question": "早上九点高峰期下单接口明显变慢，其他时间段还好。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_03",
+  "group": "symptom",
+  "question": "后台导出上个月的销售报表一直转圈，半小时都没导完。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_04",
+  "group": "symptom",
+  "question": "用户中心按手机号查用户越来越慢，用户量涨了之后更明显。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_05",
+  "group": "symptom",
+  "question": "商品搜索页翻到后面几页的时候特别慢。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_06",
+  "group": "symptom",
+  "question": "每天凌晨的对账任务以前十分钟跑完，现在要一个多小时。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_07",
+  "group": "symptom",
+  "question": "首页的销量排行榜加载很慢，偶尔直接白屏。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_08",
+  "group": "symptom",
+  "question": "订单详情页有时候很快，有时候要卡好几秒，看不出规律。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_09",
+  "group": "symptom",
+  "question": "下单时偶尔提示“系统繁忙，请稍后重试”，后台日志里是 Deadlock found when trying to get lock。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_10",
+  "group": "symptom",
+  "question": "报表服务从今天开始一直报 Out Of Memory Quota，昨天还好好的。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_11",
+  "group": "symptom",
+  "question": "批量导入商品时报 Duplicate entry 错误，可我们确认导入的数据没有重复。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_12",
+  "group": "symptom",
+  "question": "应用日志里出现大量 Too many connections，很多用户登录失败。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_13",
+  "group": "symptom",
+  "question": "结算接口报 Lock wait timeout exceeded; try restarting transaction。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_14",
+  "group": "symptom",
+  "question": "发了新版本之后，订单统计页面报 Unknown column 'discount' in 'field list'。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_15",
+  "group": "symptom",
+  "question": "支付回调接口经常超时，第三方说我们的响应超过了 30 秒。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_16",
+  "group": "symptom",
+  "question": "库存扣减偶尔卡住，最后报超时，大促的时候更严重。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_17",
+  "group": "symptom",
+  "question": "更新会员积分的定时任务总是超时退出。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_18",
+  "group": "symptom",
+  "question": "运营后台的批量改价功能一点就超时。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_19",
+  "group": "symptom",
+  "question": "退款审核页面点提交后一直没反应，最后网关返回 504。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "symptom_20",
+  "group": "symptom",
+  "question": "晚上跑数据同步任务的时候，前台好几个接口都开始超时。",
+  "expected": "diagnosis",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "unrelated_01",
+  "group": "unrelated",
+  "question": "今天北京天气怎么样？",
+  "expected": "out_of_scope",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "unrelated_02",
+  "group": "unrelated",
+  "question": "帮我把这句话翻译成英文：感谢您的耐心等待。",
+  "expected": "out_of_scope",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "unrelated_03",
+  "group": "unrelated",
+  "question": "推荐几本好看的科幻小说。",
+  "expected": "out_of_scope",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "unrelated_04",
+  "group": "unrelated",
+  "question": "溏心蛋要煮几分钟？",
+  "expected": "out_of_scope",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "unrelated_05",
+  "group": "unrelated",
+  "question": "家里的 Wi-Fi 一到晚上就特别慢，怎么办？",
+  "expected": "out_of_scope",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "unrelated_06",
+  "group": "unrelated",
+  "question": "我的笔记本电脑开机越来越慢，怎么优化？",
+  "expected": "out_of_scope",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "unrelated_07",
+  "group": "unrelated",
+  "question": "帮我写一封给客户的节日祝福邮件。",
+  "expected": "out_of_scope",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "unrelated_08",
+  "group": "unrelated",
+  "question": "Python 里怎么把一个列表倒序？",
+  "expected": "out_of_scope",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "unrelated_09",
+  "group": "unrelated",
+  "question": "下周去杭州玩三天，帮我安排一下行程。",
+  "expected": "out_of_scope",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "unrelated_10",
+  "group": "unrelated",
+  "question": "手机打游戏的时候发烫还卡顿，正常吗？",
+  "expected": "out_of_scope",
+  "source": "evalsets/router/handwritten.yaml"
+ },
+ {
+  "id": "tidb_params__direct__d018",
+  "group": "param",
+  "question": "TiDB 系统变量 `tidb_shard_allocate_step` 的作用域是什么？",
+  "expected": "param_lookup",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__direct__d054",
+  "group": "param",
+  "question": "TiDB 系统变量 `tidb_mem_quota_apply_cache` 的默认值是多少？",
+  "expected": "param_lookup",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__direct__d093",
+  "group": "param",
+  "question": "TiKV 配置项 `raftdb.max-sub-compactions` 的默认值是多少？",
+  "expected": "param_lookup",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__direct__d126",
+  "group": "param",
+  "question": "TiDB 配置项 `instance.tidb_expensive_query_time_threshold` 的默认值是多少？",
+  "expected": "param_lookup",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__direct__d016",
+  "group": "param",
+  "question": "TiDB 系统变量 `tidb_enable_plan_cache_for_param_limit` 的作用域是什么？",
+  "expected": "param_lookup",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__descriptive__s050",
+  "group": "param",
+  "question": "TiKV配置中，当Blob文件大小小于何值时，无视discardable-ratio仍可能被GC选中？",
+  "expected": "param_lookup",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__descriptive__s118",
+  "group": "param",
+  "question": "TiDB 配置项中，控制远程轮询 jaeger-agent 采样策略频率的参数默认值是多少？",
+  "expected": "param_lookup",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__descriptive__s122",
+  "group": "param",
+  "question": "PD 配置文件中，用于初始化 PD 集群配置（如指定节点名与对等 URL 映射）的参数默认值是什么？",
+  "expected": "param_lookup",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__descriptive__s111",
+  "group": "param",
+  "question": "TiKV 配置项中，用于存放日志文件临时目录、预先写入后 flush 到外部存储的参数默认值是什么？",
+  "expected": "param_lookup",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__descriptive__s081",
+  "group": "param",
+  "question": "TiDB 开启 statement summary tables 持久化后，保留数据文件的最大天数的系统变量默认值是多少？",
+  "expected": "param_lookup",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__version__v038",
+  "group": "version",
+  "question": "TiDB 系统变量 `tidb_enable_list_partition` 是在 TiDB 哪个版本被废弃的？",
+  "expected": "research",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__version__v032",
+  "group": "version",
+  "question": "TiKV 配置项 `backup.gcp-v2-enable` 是在 TiDB 哪个版本新增的？",
+  "expected": "research",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__version__v029",
+  "group": "version",
+  "question": "TiDB 配置项 `instance.tidb_enable_stats_owner` 是在 TiDB 哪个版本新增的？",
+  "expected": "research",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__version__v016",
+  "group": "version",
+  "question": "与 v8.1.0 相比，v8.5.8 中 TiDB 系统变量 `tidb_enable_column_tracking` 的默认值有什么变化？",
+  "expected": "research",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__version__v001",
+  "group": "version",
+  "question": "与 v8.1.0 相比，v8.5.8 中 TiDB 配置项 `performance.concurrently-init-stats` 的默认值有什么变化？",
+  "expected": "research",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__version__v020",
+  "group": "version",
+  "question": "与 v8.1.0 相比，v8.5.8 中 TiKV 配置项 `coprocessor.region-split-keys` 的默认值有什么变化？",
+  "expected": "research",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__version__v003",
+  "group": "version",
+  "question": "与 v8.1.0 相比，v8.5.8 中 TiDB 系统变量 `tidb_enable_inl_join_inner_multi_pattern` 的默认值有什么变化？",
+  "expected": "research",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__version__v004",
+  "group": "version",
+  "question": "与 v8.1.0 相比，v8.5.8 中 TiKV 配置项 `server.raft-client-queue-size` 的默认值有什么变化？",
+  "expected": "research",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__version__v010",
+  "group": "version",
+  "question": "与 v8.1.0 相比，v8.5.8 中 TiDB 配置项 `deprecate-integer-display-length` 的默认值有什么变化？",
+  "expected": "research",
+  "source": "evalsets/tidb/questions.json"
+ },
+ {
+  "id": "tidb_params__version__v027",
+  "group": "version",
+  "question": "TiDB 系统变量 `tidb_enable_cache_prepare_stmt` 是在 TiDB 哪个版本新增的？",
+  "expected": "research",
+  "source": "evalsets/tidb/questions.json"
+ }
+]

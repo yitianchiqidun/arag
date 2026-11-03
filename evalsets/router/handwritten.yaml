@@ -1,0 +1,38 @@
+# Hand-written questions for the router test (stage 8, D35). Business symptoms never name
+# TiDB or the database; the unrelated ones include device and network problems that look like
+# performance symptoms but have nothing to do with the business system.
+diagnosis:
+  # performance
+  - 订单列表页这两天打开要等十几秒，以前一两秒就出来了。
+  - 早上九点高峰期下单接口明显变慢，其他时间段还好。
+  - 后台导出上个月的销售报表一直转圈，半小时都没导完。
+  - 用户中心按手机号查用户越来越慢，用户量涨了之后更明显。
+  - 商品搜索页翻到后面几页的时候特别慢。
+  - 每天凌晨的对账任务以前十分钟跑完，现在要一个多小时。
+  - 首页的销量排行榜加载很慢，偶尔直接白屏。
+  - 订单详情页有时候很快，有时候要卡好几秒，看不出规律。
+  # errors
+  - 下单时偶尔提示“系统繁忙，请稍后重试”，后台日志里是 Deadlock found when trying to get lock。
+  - 报表服务从今天开始一直报 Out Of Memory Quota，昨天还好好的。
+  - 批量导入商品时报 Duplicate entry 错误，可我们确认导入的数据没有重复。
+  - 应用日志里出现大量 Too many connections，很多用户登录失败。
+  - 结算接口报 Lock wait timeout exceeded; try restarting transaction。
+  - 发了新版本之后，订单统计页面报 Unknown column 'discount' in 'field list'。
+  # timeouts
+  - 支付回调接口经常超时，第三方说我们的响应超过了 30 秒。
+  - 库存扣减偶尔卡住，最后报超时，大促的时候更严重。
+  - 更新会员积分的定时任务总是超时退出。
+  - 运营后台的批量改价功能一点就超时。
+  - 退款审核页面点提交后一直没反应，最后网关返回 504。
+  - 晚上跑数据同步任务的时候，前台好几个接口都开始超时。
+out_of_scope:
+  - 今天北京天气怎么样？
+  - 帮我把这句话翻译成英文：感谢您的耐心等待。
+  - 推荐几本好看的科幻小说。
+  - 溏心蛋要煮几分钟？
+  - 家里的 Wi-Fi 一到晚上就特别慢，怎么办？
+  - 我的笔记本电脑开机越来越慢，怎么优化？
+  - 帮我写一封给客户的节日祝福邮件。
+  - Python 里怎么把一个列表倒序？
+  - 下周去杭州玩三天，帮我安排一下行程。
+  - 手机打游戏的时候发烫还卡顿，正常吗？
