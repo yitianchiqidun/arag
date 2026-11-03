@@ -107,3 +107,17 @@ def test_rewrite_one_revises_once(
     )
     skipped = rewrite_one(config(tmp_path), pricing, draft())
     assert skipped.reject_reason == "rewriter: 说明太笼统"
+
+
+def test_supplement_plan(tmp_path: Path) -> None:
+    cfg = config(tmp_path)
+    cfg.composition.direct = {"tidb_config:默认值": 4}
+    cfg.composition.descriptive_ready = {"tidb_config": 2}
+    base = draft()
+    drafts = [
+        base.model_copy(update={"candidate_id": f"d{i}", "group": "direct"}) for i in range(4)
+    ] + [base.model_copy(update={"candidate_id": f"s{i}"}) for i in range(2)]
+    status = {"d0": "ready", "d1": "closed_book", "d2": "closed_book", "d3": "closed_book"}
+    status |= {"s0": "ready", "s1": "ready"}
+    # direct: 1 of 4 ready (rate 0.25), 3 missing -> 3 / 0.25 * 1.2 = 14.4 -> 15
+    assert tidb_build.supplement_plan(cfg, drafts, status) == {("direct", "tidb_config:默认值"): 15}

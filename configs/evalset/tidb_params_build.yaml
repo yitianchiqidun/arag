@@ -23,6 +23,11 @@ composition:
     tikv_config: 17
     tidb_config: 10
     pd_config: 8
+  descriptive_ready:  # ready questions wanted after the closed-book filter (supplement)
+    system_variable: 30
+    tikv_config: 15
+    tidb_config: 8
+    pd_config: 7
   version:  # stratified by release version and component
     修改: 20
     新增: 12

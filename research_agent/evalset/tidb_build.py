@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -33,6 +34,7 @@ from research_agent.evalset.dataset import (
     Evidence,
     _atomic_write,
     _read_jsonl,
+    load_candidates,
     write_candidates,
 )
 from research_agent.evalset.tidb_facts import (
@@ -101,6 +103,9 @@ class Composition(BaseModel):
     # (component, field) -> count; component "system_variable" etc., field as in FIELDS.
     direct: dict[str, int]
     descriptive: dict[str, int]  # component -> count (default values)
+    # Ready descriptive questions wanted after the closed-book filter (for ``supplement``);
+    # more than the 50 needed, as the pre-review and the human review drop some.
+    descriptive_ready: dict[str, int] = Field(default_factory=dict)
     version: dict[str, int]  # change type(s) joined by "/" -> count
 
 
@@ -203,38 +208,89 @@ def _similar_notes(
     return notes
 
 
+def _param_pool(new_docs: list[Document]) -> list[DraftQuestion]:
+    by_path = {d.path: d for d in new_docs}
+    facts = unique_param_facts([f for p in PARAM_DOCS for f in param_facts(by_path[p])])
+    return [q for f in facts if (q := param_question(f))]
+
+
+def _direct_items(pool: list[DraftQuestion], spec: str) -> list[DraftQuestion]:
+    """``spec`` is "component:field"; "范围" also takes "取值范围"."""
+    component, field = spec.split(":")
+    fields = ("范围", "取值范围") if field == "范围" else (field,)
+    return [q for q in pool if q.fact["component"] == component and q.fact["field"] in fields]
+
+
+def _descriptive_items(
+    pool: list[DraftQuestion], component: str, min_chars: int
+) -> list[DraftQuestion]:
+    return [
+        q
+        for q in pool
+        if q.fact["field"] == "默认值"
+        and q.fact["component"] == component
+        and len(str(q.fact["description"])) >= min_chars
+    ]
+
+
+def _to_draft(
+    group: str,
+    candidate_id: str,
+    q: DraftQuestion,
+    chunks: list[dict[str, Any]],
+    descriptions: dict[tuple[str, str], list[str]],
+) -> Draft:
+    refs = [(q.doc, q.quote, q.anchor), *((e.doc, e.quote, e.anchor) for e in q.more_evidence)]
+    evidence = []
+    for doc, quote, anchor in refs:
+        probe = q.model_copy(update={"doc": doc, "quote": quote, "anchor": anchor})
+        evidence.append(Evidence(doc=doc, chunk_id=locate_chunk(chunks, probe), quote=quote))
+    description = ""
+    if group == "descriptive":
+        description = _description(ParamFact.model_validate(q.fact), descriptions)
+    return Draft(
+        candidate_id=candidate_id, group=group, draft=q, evidence=evidence, description=description
+    )
+
+
+def _add_notes(
+    cfg: BuildConfig,
+    drafts: list[Draft],
+    pool: list[DraftQuestion],
+    descriptions: dict[tuple[str, str], list[str]],
+    embed: Any,
+) -> None:
+    targets = [d for d in drafts if d.group == "descriptive"]
+    if embed is None or not targets:
+        return
+    defaults = [q for q in pool if q.fact["field"] == "默认值"]
+    notes = _similar_notes(
+        [d.draft for d in targets], defaults, descriptions, cfg.similar_params, embed
+    )
+    for d, note in zip(targets, notes):
+        d.review_notes = note
+
+
 def build_drafts(cfg: BuildConfig, embed: Any | None = None) -> tuple[list[Draft], BuildReport]:
     corpus = CorpusConfig.from_yaml(cfg.corpus)
     evalset = cfg.load_evalset()
     _, new_docs, _ = corpus.load(cfg.new_ref)
     _, old_docs, _ = corpus.load(cfg.old_ref)
     chunks = json.loads(Path(evalset.load_run_config().data.chunks_file).read_text())
-    by_path = {d.path: d for d in new_docs}
-    facts = unique_param_facts([f for p in PARAM_DOCS for f in param_facts(by_path[p])])
-    pool = [q for f in facts if (q := param_question(f))]
+    pool = _param_pool(new_docs)
     pools: Counter[str] = Counter(f"{q.fact['component']}:{q.fact['field']}" for q in pool)
 
     direct: list[DraftQuestion] = []
     for spec, n in cfg.composition.direct.items():
-        component, field = spec.split(":")
-        fields = ("范围", "取值范围") if field == "范围" else (field,)
-        items = [q for q in pool if q.fact["component"] == component and q.fact["field"] in fields]
-        direct += seeded_sample(items, n, cfg.seed, exclude={q.source for q in direct})
+        exclude = {q.source for q in direct}
+        direct += seeded_sample(_direct_items(pool, spec), n, cfg.seed, exclude=exclude)
 
     descriptions = _entry_descriptions(new_docs)
-    defaults = [q for q in pool if q.fact["field"] == "默认值"]
-    used = {q.source for q in direct}
     descriptive: list[DraftQuestion] = []
     for component, n in cfg.composition.descriptive.items():
-        items = [
-            q
-            for q in defaults
-            if q.fact["component"] == component
-            and len(str(q.fact["description"])) >= cfg.min_description_chars
-        ]
-        descriptive += seeded_sample(
-            items, n, cfg.seed, exclude=used | {q.source for q in descriptive}
-        )
+        items = _descriptive_items(pool, component, cfg.min_description_chars)
+        exclude = {q.source for q in direct} | {q.source for q in descriptive}
+        descriptive += seeded_sample(items, n, cfg.seed, exclude=exclude)
 
     new, old = ParamIndex(new_docs), ParamIndex(old_docs)
     all_changes = [c for d in new_docs for c in release_changes(d)]
@@ -269,43 +325,17 @@ def build_drafts(cfg: BuildConfig, embed: Any | None = None) -> tuple[list[Draft
             group_counts=group_counts,
         )
 
-    drafts: list[Draft] = []
-    missing = 0
-    for group, prefix, questions in (
-        ("direct", "d", direct),
-        ("descriptive", "s", descriptive),
-        ("version", "v", version),
-    ):
-        for i, q in enumerate(questions, 1):
-            refs = [
-                (q.doc, q.quote, q.anchor),
-                *((e.doc, e.quote, e.anchor) for e in q.more_evidence),
-            ]
-            evidence = []
-            for doc, quote, anchor in refs:
-                probe = q.model_copy(update={"doc": doc, "quote": quote, "anchor": anchor})
-                chunk_id = locate_chunk(chunks, probe)
-                missing += chunk_id is None
-                evidence.append(Evidence(doc=doc, chunk_id=chunk_id, quote=quote))
-            fact = q.fact
-            drafts.append(
-                Draft(
-                    candidate_id=f"{prefix}{i:03d}",
-                    group=group,
-                    draft=q,
-                    evidence=evidence,
-                    description=_description(ParamFact.model_validate(fact), descriptions)
-                    if group == "descriptive"
-                    else "",
-                )
-            )
-    if embed is not None and descriptive:
-        targets = [d for d in drafts if d.group == "descriptive"]
-        notes = _similar_notes(
-            [d.draft for d in targets], defaults, descriptions, cfg.similar_params, embed
+    drafts = [
+        _to_draft(group, f"{prefix}{i:03d}", q, chunks, descriptions)
+        for group, prefix, questions in (
+            ("direct", "d", direct),
+            ("descriptive", "s", descriptive),
+            ("version", "v", version),
         )
-        for d, note in zip(targets, notes):
-            d.review_notes = note
+        for i, q in enumerate(questions, 1)
+    ]
+    missing = sum(e.chunk_id is None for d in drafts for e in d.evidence)
+    _add_notes(cfg, drafts, pool, descriptions, embed)
     report = BuildReport(
         pools=dict(sorted(pools.items())),
         version_drops=dict(sorted(drops.items())),
@@ -452,6 +482,81 @@ def build_candidates(cfg: BuildConfig, workers: int = 5) -> list[Candidate]:
     return candidates
 
 
+SUPPLEMENT_MARGIN = 1.2  # draw this much more than the expected need
+MIN_READY_RATE = 0.25  # a cell's observed ready rate is not taken below this
+
+
+def _cell(d: Draft) -> str:
+    """Sampling cell of a parameter draft: "component:field" (direct) or component."""
+    fact = d.draft.fact
+    if d.group == "direct":
+        field = "范围" if fact["field"] in ("范围", "取值范围") else fact["field"]
+        return f"{fact['component']}:{field}"
+    return str(fact["component"])
+
+
+def supplement_plan(
+    cfg: BuildConfig, drafts: list[Draft], status: dict[str, str]
+) -> dict[tuple[str, str], int]:
+    """(group, cell) -> drafts to add so that, at the observed ready rate of the cell, its
+    ready questions reach the target (direct: the composition; descriptive: descriptive_ready).
+    """
+    plan: dict[tuple[str, str], int] = {}
+    targets = [
+        ("direct", cfg.composition.direct),
+        ("descriptive", cfg.composition.descriptive_ready),
+    ]
+    for group, cells in targets:
+        for cell, target in cells.items():
+            mine = [d for d in drafts if d.group == group and _cell(d) == cell]
+            ready = sum(status.get(d.candidate_id) == "ready" for d in mine)
+            need = target - ready
+            if need <= 0 or not mine:
+                continue
+            rate = max(ready / len(mine), MIN_READY_RATE)
+            plan[(group, cell)] = math.ceil(need / rate * SUPPLEMENT_MARGIN)
+    return plan
+
+
+def supplement(
+    cfg: BuildConfig, status: dict[str, str], embed: Any | None, workers: int = 5
+) -> list[Candidate]:
+    """Draw more parameter drafts where the closed-book filter left a cell short, in the same
+    seeded order as the first draw (the next unused parameters), rewrite the descriptive ones
+    and append everything to drafts.jsonl and candidates.jsonl (API calls for the rewrite)."""
+    corpus = CorpusConfig.from_yaml(cfg.corpus)
+    evalset = cfg.load_evalset()
+    _, new_docs, _ = corpus.load(cfg.new_ref)
+    chunks = json.loads(Path(evalset.load_run_config().data.chunks_file).read_text())
+    pool = _param_pool(new_docs)
+    descriptions = _entry_descriptions(new_docs)
+    drafts = load_drafts(cfg)
+    used = {d.draft.source for d in drafts}
+    counters = Counter(d.candidate_id[0] for d in drafts)
+    added: list[Draft] = []
+    for (group, cell), n in supplement_plan(cfg, drafts, status).items():
+        if group == "direct":
+            items = _direct_items(pool, cell)
+        else:
+            items = _descriptive_items(pool, cell, cfg.min_description_chars)
+        prefix = "d" if group == "direct" else "s"
+        for q in seeded_sample(items, n, cfg.seed, exclude=used):
+            used.add(q.source)
+            counters[prefix] += 1
+            cid = f"{prefix}{counters[prefix]:03d}"
+            added.append(_to_draft(group, cid, q, chunks, descriptions))
+    _add_notes(cfg, added, pool, descriptions, embed)
+    out = evalset.out
+    _atomic_write(out / DRAFTS_FILE, "".join(d.model_dump_json() + "\n" for d in drafts + added))
+    pricing = PricingTable.from_yaml(evalset.load_run_config().pricing_file)
+    todo = [d for d in added if d.group == "descriptive"]
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        rewritten = list(executor.map(lambda d: rewrite_one(cfg, pricing, d), todo))
+    new = [_candidate(d, d.draft.question) for d in added if d.group != "descriptive"] + rewritten
+    write_candidates(evalset, load_candidates(evalset) + new)
+    return new
+
+
 class CallEstimate(BaseModel):
     step: str
     model: str
@@ -537,7 +642,7 @@ def estimate(cfg: BuildConfig, count_tokens: Any, overhead: float = 1.15) -> lis
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m research_agent.evalset.tidb_build")
     parser.add_argument("config")
-    parser.add_argument("step", choices=["draft", "estimate", "rewrite"])
+    parser.add_argument("step", choices=["draft", "estimate", "rewrite", "supplement"])
     parser.add_argument("--workers", type=int, default=5)
     args = parser.parse_args()
     cfg = BuildConfig.from_yaml(args.config)
@@ -558,6 +663,23 @@ def main() -> None:
         for r in rows:
             print(r.model_dump_json())
         print(f"total {sum(r.cost for r in rows):.4f}")
+    elif args.step == "supplement":
+        from research_agent.evalset.dataset import statuses
+        from research_agent.ingest.index import SentenceTransformerEmbedder
+        from research_agent.upstream import load_env
+
+        load_env()
+        evalset = cfg.load_evalset()
+        status: dict[str, str] = dict(statuses(evalset, load_candidates(evalset)))
+        corpus = CorpusConfig.from_yaml(cfg.corpus)
+        model = SentenceTransformerEmbedder(
+            corpus.embedding.model, corpus.embedding.device, corpus.embedding.batch_size
+        )
+        new = supplement(cfg, status, model.encode, args.workers)
+        by_group = dict(Counter(c.group for c in new))
+        n_rejected = sum(bool(c.reject_reason) for c in new)
+        new_cost = sum(c.cost for c in new)
+        print(f"{len(new)} new: {by_group}, rejected {n_rejected}, rewrite cost {new_cost:.4f}")
     else:
         from research_agent.upstream import load_env
 

@@ -1,0 +1,15 @@
+{
+  "chunks_file": "data/tidb_docs/current/chunks.json",
+  "chunks_sha256": "83b97e533cfcbc512b090a68d424ea3abdc871853cda620a08041510ea765ff7",
+  "corpus_source": {
+    "kind": "git",
+    "ref": "origin/release-8.5",
+    "commit": "1b354399111e330414885ab90d8c773c15df9f7b"
+  },
+  "built_at": "2026-11-03T12:48:34",
+  "groups": {
+    "direct": 50,
+    "version": 38,
+    "descriptive": 70
+  }
+}
