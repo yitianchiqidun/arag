@@ -331,6 +331,12 @@ def test_version_questions_are_checked_against_both_versions() -> None:
         old_a is not None and old_a.question.startswith("在 v8 系列中") and old_a.answer == "v8.5.0"
     )
     assert out["gone_var"][0] is not None and out["gone_var"][0].answer == "v8.5.0"
+    # A "新增 / 废弃 / 删除" already listed at or before the base version has no single answer.
+    earlier = {("system_variable", "new_var", "新增")}
+    assert version_question(changes[2], new, old, set(), earlier=earlier) == (
+        None,
+        "changed_at_or_before_base",
+    )
     # A change also made on the v8.1 line after v8.1.0 is dropped.
     skipped = version_question(changes[0], new, old, {("system_variable", "fast_create")})
     assert skipped == (None, "changed_on_the_v8_1_line")

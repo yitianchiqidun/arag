@@ -236,9 +236,12 @@ def version_question(
     changed_on_old_line: set[tuple[str, str]],
     base: str = BASE_VERSION,
     target: str = TARGET_VERSION,
+    earlier: set[tuple[str, str, str]] | frozenset[tuple[str, str, str]] = frozenset(),
 ) -> tuple[DraftQuestion | None, str]:
     """The question for one release-notes row, checked against the parameter docs of both
-    versions; returns (question, "ok") or (None, why it was dropped)."""
+    versions; returns (question, "ok") or (None, why it was dropped). ``earlier`` holds the
+    (table, name, change) rows at or before the base version: a "新增 / 废弃 / 删除" already
+    listed there has no single answer."""
     component = change_component(change)
     if component is None:
         return None, "outside_subset"
@@ -246,6 +249,9 @@ def version_question(
     if template is None:
         return None, "unknown_change"
     label = COMPONENT_LABELS[component]
+    if change.change != "修改" and (change.table, change.name, change.change) in earlier:
+        # e.g. enable-telemetry is listed as deprecated in v8.1.0 and again in v8.5.7
+        return None, "changed_at_or_before_base"
     if change.change == "修改" and (change.old_default is None or change.new_default is None):
         return None, "not_a_default_change"  # no single answer
     entries = new.find(component, change.name)

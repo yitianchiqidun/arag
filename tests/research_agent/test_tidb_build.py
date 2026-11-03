@@ -121,3 +121,20 @@ def test_supplement_plan(tmp_path: Path) -> None:
     status |= {"s0": "ready", "s1": "ready"}
     # direct: 1 of 4 ready (rate 0.25), 3 missing -> 3 / 0.25 * 1.2 = 14.4 -> 15
     assert tidb_build.supplement_plan(cfg, drafts, status) == {("direct", "tidb_config:默认值"): 15}
+
+
+def test_leak_check_handles_cjk_neighbours_and_similarity_rule() -> None:
+    d = draft().model_copy(update={"draft": draft().draft.model_copy(update={"answer": "0"})})
+    # "为0的": CJK characters around the digit used to hide the leak (\w includes CJK).
+    assert rewrite_failures("默认值为0的那个参数是什么？", d) == ["问题里出现了默认值 0"]
+    assert rewrite_failures("v10 中默认值是多少？", d) == []  # part of another number
+    notes = (
+        "说明最相似的其他参数：\n"
+        "- TiKV 配置项 `rocksdb.max-manifest-file-size`（相似度 0.96，默认值 128MiB）：…\n"
+        '- TiKV 配置项 `raftdb.wal-dir`（相似度 0.80，默认值 ""）：…\n'
+        '- TiKV 配置项 `raftdb.other`（相似度 0.97，默认值 "20MiB"）：…'
+    )
+    assert tidb_build.similar_conflicts(notes, '"20MiB"', 0.95) == [
+        "rocksdb.max-manifest-file-size"
+    ]
+    assert tidb_build.similar_conflicts(notes, '"20MiB"', 0.99) == []

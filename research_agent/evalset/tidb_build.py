@@ -125,6 +125,9 @@ class BuildConfig(BaseModel):
     max_per_group: int = 2  # release-notes questions per config section
     min_description_chars: int = 10
     similar_params: int = 5  # listed for the pre-review of descriptive questions
+    # A descriptive question is dropped when a listed parameter is at least this similar and
+    # has another default: the description cannot single out the parameter (D30).
+    max_similarity: float = 0.95
     composition: Composition
     rewriter: LLMConfig
     max_revisions: int = Field(default=1, ge=0)
@@ -302,6 +305,7 @@ def build_drafts(cfg: BuildConfig, embed: Any | None = None) -> tuple[list[Draft
     old_line = changed_names(
         [c for c in all_changes if _vtuple(c.version)[:2] == base[:2] and _vtuple(c.version) > base]
     )
+    earlier = earlier_changes(new_docs, cfg.base_version)
     later = unique_changes(
         [
             c
@@ -310,7 +314,8 @@ def build_drafts(cfg: BuildConfig, embed: Any | None = None) -> tuple[list[Draft
         ]
     )
     results = [
-        version_question(c, new, old, old_line, cfg.base_version, cfg.target_version) for c in later
+        version_question(c, new, old, old_line, cfg.base_version, cfg.target_version, earlier)
+        for c in later
     ]
     drops = Counter(f"{c.change}:{why}" for c, (q, why) in zip(later, results) if q is None)
     vpool = [q for q, _ in results if q is not None]
@@ -370,7 +375,8 @@ def rewrite_failures(question: str, draft: Draft) -> list[str]:
         if term.lower() in question.lower():
             problems.append(f"问题里出现了参数名 `{term}`")
     for value in [draft.draft.answer, *draft.draft.answer_aliases]:
-        pattern = rf"(?<![\w.]){re.escape(value)}(?![\w.])"
+        # ASCII boundaries: in Python, CJK characters are \w, so "默认值为0的" must still match 0.
+        pattern = rf"(?<![0-9A-Za-z_.]){re.escape(value)}(?![0-9A-Za-z_.])"
         if value and re.search(pattern, question, re.IGNORECASE):
             problems.append(f"问题里出现了默认值 {value}")
             break
@@ -379,6 +385,22 @@ def rewrite_failures(question: str, draft: Draft) -> list[str]:
     if "？" not in question and "?" not in question:
         problems.append("不是一个问句")
     return problems
+
+
+_SIMILAR = re.compile(r"`([^`]+)`（相似度 ([\d.]+)，默认值 (.+?)）")
+
+
+def similar_conflicts(notes: str, answer: str, threshold: float) -> list[str]:
+    """Parameters in the review notes at least ``threshold`` similar with another default."""
+
+    def norm(text: str) -> str:
+        return re.sub(r"[\s`\"']", "", text).lower()
+
+    return [
+        name
+        for name, sim, default in _SIMILAR.findall(notes)
+        if float(sim) >= threshold and norm(default) != norm(answer)
+    ]
 
 
 def rewrite_prompt(draft: Draft) -> str:
@@ -560,6 +582,51 @@ def supplement(
     return new
 
 
+def earlier_changes(new_docs: list[Document], base_version: str) -> set[tuple[str, str, str]]:
+    """(table, name, change) of every release-notes row at or before the base version."""
+    base = _vtuple(base_version)
+    return {
+        (c.table, c.name, c.change)
+        for d in new_docs
+        for c in release_changes(d)
+        if _vtuple(c.version) <= base
+    }
+
+
+def recheck(cfg: BuildConfig) -> dict[str, int]:
+    """Apply checks added after the candidates were built: the answer-leak rule (fixed CJK
+    boundaries) and the similarity rule for descriptive questions, and for release-notes
+    questions the "already changed at or before the base version" rule. Returns the
+    candidates rejected by reason."""
+    evalset = cfg.load_evalset()
+    corpus = CorpusConfig.from_yaml(cfg.corpus)
+    _, new_docs, _ = corpus.load(cfg.new_ref)
+    earlier = earlier_changes(new_docs, cfg.base_version)
+    drafts = {d.candidate_id: d for d in load_drafts(cfg)}
+    counts: Counter[str] = Counter()
+    out = []
+    for c in load_candidates(evalset):
+        reason = None
+        if c.reject_reason is None and c.group == "descriptive":
+            problems = rewrite_failures(c.question, drafts[c.candidate_id])
+            conflicts = similar_conflicts(c.review_notes, c.answer, cfg.max_similarity)
+            if problems:
+                reason = "rules: " + "；".join(problems)
+            elif conflicts:
+                reason = "not_unique: 说明与 " + "、".join(conflicts) + " 几乎相同而默认值不同"
+        elif c.reject_reason is None and c.group == "version":
+            fact = c.origin["fact"]
+            key = (str(fact.get("table")), str(fact["name"]), str(fact["change"]))
+            if fact["change"] != "修改" and key in earlier:
+                reason = "version: 同一变更在基准版本或更早的发布说明里已经出现"
+        if reason is not None:
+            counts[reason.split(":")[0]] += 1
+            c = c.model_copy(update={"reject_reason": reason})
+        out.append(c)
+    write_candidates(evalset, out)
+    return dict(counts)
+
+
 def select(cfg: BuildConfig) -> dict[str, int]:
     """Leave out ready candidates beyond each cell's quota (in draw order) as spares.
 
@@ -693,7 +760,8 @@ def estimate(cfg: BuildConfig, count_tokens: Any, overhead: float = 1.15) -> lis
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m research_agent.evalset.tidb_build")
     parser.add_argument("config")
-    parser.add_argument("step", choices=["draft", "estimate", "rewrite", "supplement", "select"])
+    steps = ["draft", "estimate", "rewrite", "supplement", "recheck", "select"]
+    parser.add_argument("step", choices=steps)
     parser.add_argument("--workers", type=int, default=5)
     args = parser.parse_args()
     cfg = BuildConfig.from_yaml(args.config)
@@ -714,6 +782,8 @@ def main() -> None:
         for r in rows:
             print(r.model_dump_json())
         print(f"total {sum(r.cost for r in rows):.4f}")
+    elif args.step == "recheck":
+        print(f"rejected: {recheck(cfg)}")
     elif args.step == "select":
         print(f"spares: {select(cfg)}")
     elif args.step == "supplement":
