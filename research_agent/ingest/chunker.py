@@ -6,8 +6,12 @@ of at most ``max_tokens``, so short sections do not become tiny chunks; a sectio
 the limit is split at blank lines, and a single block that is still too long is split by
 lines (tables repeat their header row, code blocks are re-fenced).
 
-Each chunk's text starts with one header line, ``[docs/path.md] Heading > Subheading``, so the
-agent sees where the text comes from (and can cite it) without a separate metadata lookup.
+Each chunk's text starts with one header line naming the document and the heading paths of
+all sections in the chunk, so the agent sees where the text comes from (and can cite it)
+without a separate metadata lookup. Paths under the same parent are merged
+(:func:`merge_heading_paths`): ``[releases/r.md] Notes > 功能详情 > 安全；兼容性变更 > 行为变更、
+系统变量``. A header line longer than ``max_header_tokens`` keeps the first sections and ends
+with ``等 N 个段落``.
 """
 
 from __future__ import annotations
@@ -30,6 +34,7 @@ class ChunkerConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     max_tokens: int = Field(default=1000, ge=50)  # of the body, excluding the header line
+    max_header_tokens: int = Field(default=150, ge=20)  # of the whole header line
     merge_sections: bool = True
     source_header: bool = True
     tokenizer: str = "o200k_base"  # tiktoken encoding used to count tokens
@@ -40,6 +45,7 @@ class Chunk(BaseModel):
     title: str
     position: int  # 0-based index within the document
     headings: list[str]  # heading path of the first section in the chunk
+    sections: list[list[str]] = Field(default_factory=list)  # paths of all its sections, in order
     text: str  # what the tools return: header line + body
     tokens: int  # of ``text``
 
@@ -154,8 +160,62 @@ def split_long(text: str, limit: int, count: TokenCounter) -> list[str]:
     return _pack(pieces, limit, count, "\n\n")
 
 
-def header_line(doc: Document, headings: list[str]) -> str:
-    return f"[{doc.path}] " + (" > ".join(headings) if headings else doc.title)
+def _visible_paths(paths: list[list[str]]) -> list[list[str]]:
+    """Distinct non-empty paths, without those that are a prefix of another (implied by it)."""
+    distinct = [list(p) for p in dict.fromkeys(tuple(p) for p in paths if p)]
+    return [p for p in distinct if not any(len(q) > len(p) and q[: len(p)] == p for q in distinct)]
+
+
+def merge_heading_paths(paths: list[list[str]], sep: str = " > ", limit: int | None = None) -> str:
+    """Heading paths with shared parents written once (see module docstring).
+
+    Leaves under the same parent are joined by ``、``, parent groups by ``；``, and the prefix
+    common to all paths comes first. With ``limit`` (a number of leaves), only the first
+    ``limit`` leaves are shown and ``等 N 个段落`` gives the total.
+    """
+    visible = _visible_paths(paths)
+    if not visible:
+        return ""
+    common: list[str] = []
+    if len(visible) > 1:
+        for parts in zip(*visible):
+            if len(set(parts)) > 1:
+                break
+            common.append(parts[0])
+    groups: dict[tuple[str, ...], list[str]] = {}
+    for path in visible[:limit] if limit else visible:
+        rest = path[len(common) :]
+        groups.setdefault(tuple(rest[:-1]), []).append(rest[-1])
+    text = "；".join(sep.join([*parent, "、".join(leaves)]) for parent, leaves in groups.items())
+    if common:
+        text = sep.join([*common, text])
+    if limit and limit < len(visible):
+        text += f" 等 {len(visible)} 个段落"
+    return text
+
+
+def header_line(
+    doc: Document,
+    sections: list[list[str]],
+    count: TokenCounter | None = None,
+    max_tokens: int | None = None,
+) -> str:
+    """``[path] <merged heading paths>``, shortened to ``max_tokens`` if needed.
+
+    Shortening drops sections from the end (at least the first is kept); the body still
+    contains every heading, so only what the header line names is lost.
+    """
+
+    def line(limit: int | None = None) -> str:
+        return f"[{doc.path}] " + (merge_heading_paths(sections, limit=limit) or doc.title)
+
+    text = line()
+    if count is None or max_tokens is None or count(text) <= max_tokens:
+        return text
+    limit = len(_visible_paths(sections)) - 1
+    while limit > 1 and count(line(limit)) > max_tokens:
+        limit -= 1
+    return line(limit)
 
 
 def chunk_document(doc: Document, cfg: ChunkerConfig, count: TokenCounter) -> list[Chunk]:
@@ -167,24 +227,27 @@ def chunk_document(doc: Document, cfg: ChunkerConfig, count: TokenCounter) -> li
         else:
             units.extend((section.path, piece) for piece in split_long(section.text, limit, count))
 
-    groups: list[tuple[tuple[str, ...], list[str]]] = []
+    groups: list[tuple[list[tuple[str, ...]], list[str]]] = []
     for path, body in units:
         if cfg.merge_sections and groups and count("\n\n".join([*groups[-1][1], body])) <= limit:
+            groups[-1][0].append(path)
             groups[-1][1].append(body)
         else:
-            groups.append((path, [body]))
+            groups.append(([path], [body]))
 
     chunks: list[Chunk] = []
-    for position, (path, bodies) in enumerate(groups):
+    for position, (paths, bodies) in enumerate(groups):
         body = "\n\n".join(bodies).strip()
-        headings = list(path)
-        text = f"{header_line(doc, headings)}\n\n{body}" if cfg.source_header else body
+        sections = [list(p) for p in dict.fromkeys(paths)]  # a split section appears once
+        header = header_line(doc, sections, count, cfg.max_header_tokens)
+        text = f"{header}\n\n{body}" if cfg.source_header else body
         chunks.append(
             Chunk(
                 doc=doc.path,
                 title=doc.title,
                 position=position,
-                headings=headings,
+                headings=sections[0],
+                sections=sections,
                 text=text,
                 tokens=count(text),
             )

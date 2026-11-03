@@ -5,6 +5,7 @@ import hashlib
 from research_agent.ingest.chunker import (
     ChunkerConfig,
     chunk_document,
+    merge_heading_paths,
     parse_sections,
     split_long,
     tiktoken_counter,
@@ -43,7 +44,9 @@ def test_small_sections_are_merged_up_to_the_limit() -> None:
     cfg = ChunkerConfig(max_tokens=50)
     chunks = chunk_document(doc(text), cfg, words)
     assert len(chunks) == 1 and chunks[0].headings == ["Guide"]
-    assert chunks[0].text.startswith("[docs/guide.md] Guide\n\n# Guide\none two\n\n## A")
+    assert chunks[0].sections == [["Guide"], ["Guide", "A"], ["Guide", "B"], ["Guide", "C"]]
+    # Every section is named; "Guide" alone is implied by the paths below it.
+    assert chunks[0].text.startswith("[docs/guide.md] Guide > A、B、C\n\n# Guide\none two\n\n## A")
 
     small = chunk_document(doc(text), ChunkerConfig(max_tokens=50, merge_sections=False), words)
     assert [c.headings for c in small] == [
@@ -88,3 +91,34 @@ def test_header_uses_title_without_headings_and_tiktoken_counts() -> None:
     chunks = chunk_document(doc("plain text\n"), ChunkerConfig(), tiktoken_counter())
     assert chunks[0].text == "[docs/guide.md] Guide\n\nplain text"
     assert chunks[0].tokens == tiktoken_counter()(chunks[0].text)
+
+
+def test_merge_heading_paths() -> None:
+    notes = "Notes"
+    paths = [
+        [notes, "功能", "安全"],
+        [notes, "兼容性变更"],
+        [notes, "兼容性变更", "行为变更"],
+        [notes, "兼容性变更", "系统变量"],
+    ]
+    assert merge_heading_paths(paths) == "Notes > 功能 > 安全；兼容性变更 > 行为变更、系统变量"
+    assert merge_heading_paths(paths, sep=" › ").startswith("Notes › 功能 › 安全；")
+    assert (
+        merge_heading_paths(paths, limit=2)
+        == "Notes > 功能 > 安全；兼容性变更 > 行为变更 等 3 个段落"
+    )
+    assert merge_heading_paths([["A", "B"]]) == "A > B"
+    assert merge_heading_paths([[], ["A"], ["A", "B"], ["C"]]) == "A > B；C"
+    assert merge_heading_paths([[]]) == ""
+
+
+def test_long_header_lines_are_shortened() -> None:
+    text = "# Vars\n" + "".join(f"## `variable_number_{i}`\nvalue {i}\n" for i in range(12))
+    cfg = ChunkerConfig(max_tokens=500, max_header_tokens=60)
+    (chunk,) = chunk_document(doc(text), cfg, len)  # count characters
+    header = chunk.text.split("\n", 1)[0]
+    assert header == "[docs/guide.md] Vars > `variable_number_0` 等 12 个段落"
+    assert len(chunk.sections) == 13  # the metadata keeps every path
+    cfg = ChunkerConfig(max_tokens=500, max_header_tokens=1000)
+    full = chunk_document(doc(text), cfg, len)[0].text.split("\n", 1)[0]
+    assert full.endswith("`variable_number_10`、`variable_number_11`")

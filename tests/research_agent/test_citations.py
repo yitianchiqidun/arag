@@ -5,6 +5,7 @@ from pathlib import Path
 
 from research_agent.eval.citations import (
     ChunkRef,
+    Citation,
     citation_stats,
     cited_chunk_ids,
     load_chunk_refs,
@@ -61,14 +62,29 @@ def test_resolve_citations_and_labels() -> None:
     ]
     assert citations[0].label() == "docs/a.md › A › Install"
     assert citations[2].label() == "Chunk 6"
+    merged = Citation(
+        chunk_id="9",
+        status="read",
+        doc="r.md",
+        headings=["R", "功能", "安全"],
+        sections=[["R", "功能", "安全"], ["R", "兼容性变更"], ["R", "兼容性变更", "系统变量"]],
+    )
+    assert merged.label() == "r.md › R › 功能 › 安全；兼容性变更 › 系统变量"
+    assert Citation(chunk_id="1", status="read", doc="d.md").label() == "d.md"
 
 
 def test_load_chunk_refs_reads_both_formats(tmp_path: Path) -> None:
     dicts = tmp_path / "dicts.json"
-    dicts.write_text(json.dumps([{"id": "0", "text": "t", "doc": "docs/a.md", "headings": ["A"]}]))
+    dicts.write_text(
+        json.dumps(
+            [{"id": "0", "text": "t", "doc": "docs/a.md", "headings": ["A"], "sections": [["A"]]}]
+        )
+    )
     strings = tmp_path / "strings.json"
     strings.write_text(json.dumps(["0:alpha", "1:beta: gamma"]))
-    assert load_chunk_refs(dicts) == {"0": ChunkRef(doc="docs/a.md", headings=["A"])}
+    assert load_chunk_refs(dicts) == {
+        "0": ChunkRef(doc="docs/a.md", headings=["A"], sections=[["A"]])
+    }
     assert load_chunk_refs(strings) == {"0": ChunkRef(), "1": ChunkRef()}
 
 

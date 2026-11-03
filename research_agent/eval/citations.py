@@ -11,6 +11,9 @@ with each chunk. Each citation is also checked against what the agent actually s
 - ``snippet``: only a search snippet of it was shown
 - ``unseen``: an existing chunk the agent never saw (a guessed id)
 - ``unknown``: no chunk with this id
+
+A chunk usually holds several sections; its label names all of them (chunks.json keeps their
+heading paths in ``sections``), not only the first.
 """
 
 from __future__ import annotations
@@ -24,6 +27,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from research_agent.agent.tools import parse_chunk_ids
+from research_agent.ingest.chunker import merge_heading_paths
 
 CitationStatus = Literal["read", "snippet", "unseen", "unknown"]
 
@@ -38,7 +42,8 @@ _SEARCH_TOOLS = ("keyword_search", "semantic_search")
 
 class ChunkRef(BaseModel):
     doc: str | None = None  # None for corpora without metadata (the benchmark chunks)
-    headings: list[str] = Field(default_factory=list)
+    headings: list[str] = Field(default_factory=list)  # path of the chunk's first section
+    sections: list[list[str]] = Field(default_factory=list)  # paths of all its sections
 
 
 class Citation(BaseModel):
@@ -46,12 +51,15 @@ class Citation(BaseModel):
     status: CitationStatus
     doc: str | None = None
     headings: list[str] = Field(default_factory=list)
+    sections: list[list[str]] = Field(default_factory=list)
 
     def label(self) -> str:
-        """``docs/x.md › A › B`` (or just the chunk id when the corpus has no metadata)."""
+        """``docs/x.md › A › B、C`` with every section of the chunk (shared parents written
+        once), or just the chunk id when the corpus has no metadata."""
         if self.doc is None:
             return f"Chunk {self.chunk_id}"
-        return " › ".join([self.doc, *self.headings])
+        merged = merge_heading_paths(self.sections or [self.headings], sep=" › ")
+        return f"{self.doc} › {merged}" if merged else self.doc
 
 
 def load_chunk_refs(chunks_file: str | Path) -> dict[str, ChunkRef]:
@@ -61,7 +69,11 @@ def load_chunk_refs(chunks_file: str | Path) -> dict[str, ChunkRef]:
     refs: dict[str, ChunkRef] = {}
     for item in data:
         if isinstance(item, dict):
-            refs[str(item["id"])] = ChunkRef(doc=item.get("doc"), headings=item.get("headings", []))
+            refs[str(item["id"])] = ChunkRef(
+                doc=item.get("doc"),
+                headings=item.get("headings", []),
+                sections=item.get("sections", []),
+            )
         elif isinstance(item, str) and ":" in item:
             refs[item.split(":", 1)[0]] = ChunkRef()
     return refs
@@ -112,6 +124,7 @@ def resolve_citations(
                 status=status,
                 doc=ref.doc if ref else None,
                 headings=ref.headings if ref else [],
+                sections=ref.sections if ref else [],
             )
         )
     return citations
