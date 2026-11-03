@@ -31,9 +31,11 @@ class FakeEmbedder:
         self.model_name = model_name
         self.dtype = dtype
         self.calls: list[list[str]] = []
+        self.batch_sizes: list[int | None] = []
 
-    def encode(self, texts: list[str]) -> np.ndarray:
+    def encode(self, texts: list[str], batch_size: int | None = None) -> np.ndarray:
         self.calls.append(list(texts))
+        self.batch_sizes.append(batch_size)
         rows = []
         for t in texts:
             seed = int.from_bytes(hashlib.sha256(t.encode()).digest()[:4], "little")
@@ -79,6 +81,7 @@ def build(
     embedder: FakeEmbedder,
     chunker: ChunkerConfig = CHUNKER,
     sentence_split: SentenceSplit = "upstream",
+    chunk_batch_size: int | None = None,
 ):
     return build_index(
         docs,
@@ -90,6 +93,7 @@ def build(
         embedder=embedder,
         count_tokens=words,
         sentence_split=sentence_split,
+        chunk_batch_size=chunk_batch_size,
     )
 
 
@@ -203,3 +207,10 @@ def test_doc_changes() -> None:
         ["c"],
         ["a"],
     )
+
+
+def test_chunk_vectors_use_their_own_batch_size(tmp_path: Path) -> None:
+    embedder = FakeEmbedder()
+    report = build(V1, tmp_path / "build", embedder, chunk_batch_size=4)
+    assert embedder.batch_sizes == [None, 4]  # sentences, then chunks
+    assert report.chunk_batch_size == 4

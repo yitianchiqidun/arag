@@ -38,6 +38,10 @@ class CorpusConfig(BaseModel):
     embedding_dtype: EmbeddingDtype = "float32"
     # How chunk texts are split into the sentences of the sentence index (sentences.py).
     sentence_split: SentenceSplit = "upstream"
+    # Batch size for whole-chunk vectors (embedding.batch_size is for sentences). Chunks are
+    # ~1,000 tokens: batch 16 reserved up to 5.7 GiB of CUDA memory, batch 4 about 3 GiB and
+    # was not slower (design_decisions.md D26).
+    chunk_batch_size: int = Field(default=4, ge=1)
 
     @model_validator(mode="after")
     def _one_source(self) -> CorpusConfig:
@@ -83,4 +87,5 @@ class CorpusConfig(BaseModel):
             embedder=embedder,
             count_tokens=tiktoken_counter(self.chunker.tokenizer),
             sentence_split=self.sentence_split,
+            chunk_batch_size=self.chunk_batch_size,
         )

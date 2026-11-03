@@ -53,8 +53,8 @@ class Embedder(Protocol):
     model_name: str
     dtype: str  # precision the model runs in; vectors of different precisions are not mixed
 
-    def encode(self, texts: list[str]) -> np.ndarray:
-        """Normalized float32 vectors, one row per text."""
+    def encode(self, texts: list[str], batch_size: int | None = None) -> np.ndarray:
+        """Normalized float32 vectors, one row per text (``batch_size`` overrides the default)."""
         ...
 
 
@@ -83,10 +83,10 @@ class SentenceTransformerEmbedder:
         kwargs = {"torch_dtype": torch.float32} if dtype == "float32" else {}
         self._model = SentenceTransformer(model_name, device=device, model_kwargs=kwargs)
 
-    def encode(self, texts: list[str]) -> np.ndarray:
+    def encode(self, texts: list[str], batch_size: int | None = None) -> np.ndarray:
         vectors = self._model.encode(
             texts,
-            batch_size=self.batch_size,
+            batch_size=batch_size or self.batch_size,
             normalize_embeddings=True,
             show_progress_bar=len(texts) > 2000,
         )
@@ -133,6 +133,8 @@ class BuildReport(BaseModel):
     chunk_vectors_embedded: int = 0
     sentence_embed_seconds: float = 0.0
     chunk_embed_seconds: float = 0.0  # whole chunks are long: most of a full build's time
+    sentence_batch_size: int | None = None
+    chunk_batch_size: int | None = None
     seconds: float = 0.0
     # Process peaks so far (the whole build when run from the CLI); None when unknown.
     peak_rss_mib: float | None = None
@@ -232,13 +234,16 @@ class _Previous:
 
 
 def _vectors(
-    texts: list[str], known: dict[str, np.ndarray], embedder: Embedder
+    texts: list[str],
+    known: dict[str, np.ndarray],
+    embedder: Embedder,
+    batch_size: int | None = None,
 ) -> tuple[np.ndarray, int, int]:
     """Matrix for ``texts`` reusing ``known`` vectors; returns (matrix, reused, embedded)."""
     missing = list(dict.fromkeys(t for t in texts if t not in known))
     table = dict(known)
     if missing:
-        table.update(zip(missing, embedder.encode(missing)))
+        table.update(zip(missing, embedder.encode(missing, batch_size)))
     matrix = np.stack([table[t] for t in texts]).astype(np.float32)
     reused = sum(t in known for t in texts)
     return matrix, reused, len(missing)
@@ -255,6 +260,7 @@ def build_index(
     embedder: Embedder,
     count_tokens: TokenCounter,
     sentence_split: SentenceSplit = "upstream",
+    chunk_batch_size: int | None = None,
 ) -> BuildReport:
     """Build (or update in place) the index of ``docs`` in ``out_dir``."""
     start = time.perf_counter()
@@ -324,11 +330,14 @@ def build_index(
         sentences, prev.sentence_vectors, embedder
     )
     t1 = time.perf_counter()
+    # Whole chunks are long: a smaller batch keeps the CUDA memory peak down (D26).
     chunk_matrix, report.chunk_vectors_reused, report.chunk_vectors_embedded = _vectors(
-        chunk_texts, prev.chunk_vectors, embedder
+        chunk_texts, prev.chunk_vectors, embedder, chunk_batch_size
     )
     report.sentence_embed_seconds = round(t1 - t0, 1)
     report.chunk_embed_seconds = round(time.perf_counter() - t1, 1)
+    report.sentence_batch_size = getattr(embedder, "batch_size", None)
+    report.chunk_batch_size = chunk_batch_size or report.sentence_batch_size
 
     # Write every file, then the manifest: a crash in between leaves a manifest whose
     # chunks hash no longer matches, and the next build falls back to a full build.
