@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from arag.tools.read_chunk import ReadChunkTool
-from research_agent.baselines.naive_rag import SYSTEM_PROMPT, ChunkIndex, NaiveRAG
+from research_agent.baselines.naive_rag import CITE_INSTRUCTION, SYSTEM_PROMPT, ChunkIndex, NaiveRAG
 from research_agent.llm.client import MeteredLLMClient
 
 from .fakes import PLUS_PRICING, completion
@@ -91,3 +91,15 @@ def test_naive_rag_single_call_with_top_k_chunks(
     assert user["content"].startswith("[Context]\n[Chunk 2]\nbob lives in berlin.")
     assert user["content"].endswith("Please provide a direct answer based on the context above.")
     assert result["trajectory"][0]["tool_name"] == "dense_retrieval"
+
+
+def test_naive_rag_can_ask_for_citations(env_api: None, tiny_corpus: dict[str, Path]) -> None:
+    model = BagOfWordsModel()
+    reader = ReadChunkTool(str(tiny_corpus["chunks"]))
+    client = MeteredLLMClient(model="m", pricing=PLUS_PRICING)
+    index = build(tiny_corpus, model)
+    plain = NaiveRAG(client, index, reader, model, threading.Lock())
+    citing = NaiveRAG(client, index, reader, model, threading.Lock(), cite_chunks=True)
+    _, user = plain.build_messages("q", ["2"])
+    _, cited = citing.build_messages("q", ["2"])
+    assert cited["content"] == user["content"] + " " + CITE_INSTRUCTION

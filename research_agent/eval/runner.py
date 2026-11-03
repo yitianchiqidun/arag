@@ -198,6 +198,7 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
             embedding_model=semantic.embedding_model,
             embedding_lock=semantic._embedding_lock,
             top_k=cfg.naive_rag.top_k,
+            cite_chunks=cfg.naive_rag.cite_chunks,
         )
 
     def _create_agent(self) -> MeteredAgent:

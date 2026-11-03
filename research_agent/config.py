@@ -82,6 +82,10 @@ class NaiveRAGConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     top_k: int = Field(default=5, ge=1)
+    # Ask for the supporting chunk ids in the answer, with A-RAG's own wording ("Cite the
+    # specific chunks that support your answer"). Off by default: the paper's prompt has no
+    # such line, and stage 1 used it as is.
+    cite_chunks: bool = False
 
 
 class DataConfig(BaseModel):

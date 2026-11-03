@@ -28,6 +28,8 @@ USER_TEMPLATE = (
     "[Context]\n{context}\n\n[Question]\n{question}\n\n"
     "Please provide a direct answer based on the context above."
 )
+# Appended to the user message with naive_rag.cite_chunks (the line of A-RAG's system prompt).
+CITE_INSTRUCTION = "Cite the specific chunks that support your answer (e.g. Chunk 12)."
 
 
 class ChunkIndexMeta(BaseModel):
@@ -111,6 +113,7 @@ class NaiveRAG:
         embedding_model: Any,
         embedding_lock: threading.Lock,
         top_k: int = 5,
+        cite_chunks: bool = False,
     ) -> None:
         self.llm = llm_client
         self.index = index
@@ -118,14 +121,15 @@ class NaiveRAG:
         self.embedding_model = embedding_model
         self.embedding_lock = embedding_lock
         self.top_k = top_k
+        self.cite_chunks = cite_chunks
         self.last_result: dict[str, Any] | None = None
 
     def build_messages(self, query: str, chunk_ids: list[str]) -> list[dict[str, Any]]:
         context = "\n\n".join(f"[Chunk {cid}]\n{self.reader.chunks_dict[cid]}" for cid in chunk_ids)
-        return [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": USER_TEMPLATE.format(context=context, question=query)},
-        ]
+        user = USER_TEMPLATE.format(context=context, question=query)
+        if self.cite_chunks:
+            user += " " + CITE_INSTRUCTION
+        return [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}]
 
     def run(self, query: str) -> dict[str, Any]:
         self.last_result = None
