@@ -1,0 +1,30 @@
+{
+ "pools": {
+  "pd_config:默认值": 70,
+  "system_variable:作用域": 470,
+  "system_variable:取值范围": 25,
+  "system_variable:范围": 163,
+  "system_variable:默认值": 425,
+  "tidb_config:默认值": 110,
+  "tikv_config:默认值": 309,
+  "version:release:修改": 23,
+  "version:release:删除": 2,
+  "version:release:废弃": 11,
+  "version:release:新增": 77
+ },
+ "version_drops": {
+  "修改:new_default_mismatch": 1,
+  "修改:not_a_default_change": 20,
+  "修改:old_default_mismatch": 2,
+  "修改:outside_subset": 4,
+  "删除:outside_subset": 1,
+  "新增:not_in_parameter_docs": 2,
+  "新增:outside_subset": 14
+ },
+ "sampled": {
+  "direct": 50,
+  "descriptive": 70,
+  "version": 38
+ },
+ "evidence_missing": 0
+}

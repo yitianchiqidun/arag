@@ -1,0 +1,49 @@
+# Stage 4 evalset on the TiDB docs (design_decisions.md D30): parameter questions (direct /
+# descriptive) and release-notes questions. Candidates come from
+# research_agent/evalset/tidb_build.py (configs/evalset/tidb_params_build.yaml); then
+#   python -m research_agent.evalset closed-book configs/evalset/tidb_params.yaml
+#   python -m research_agent.evalset prereview configs/evalset/tidb_params.yaml
+#   QA_REVIEW_CONFIG=configs/evalset/tidb_params.yaml uv run streamlit run apps/qa_review.py
+#   python -m research_agent.evalset finalize configs/evalset/tidb_params.yaml
+name: tidb_params
+source: tidb_docs_v8.5
+subject: TiDB
+run_config: configs/tidb_docs_qwen37_plus.yaml  # agent model (closed book), judge, index
+out_dir: evalsets/tidb
+
+groups:
+  direct: 直接问法
+  descriptive: 描述问法
+  version: 版本变更
+
+closed_book:
+  samples: 3
+  temperature: 0.7
+
+review:
+  criteria: |
+    1. 答案正确：标准答案与证据原文一致（默认值、作用域、取值范围、版本号），必要时改写答案。
+    2. 问题自然、无歧义：只有一个正确答案；版本变更题比较的是 v8.1.0 和 v8.5.8 两个具体版本。
+    3. 描述问法唯一：问题只描述参数的作用、不出现参数名，并且只对应这一个参数。对照“审核参考”里列出的相似参数，如果描述同样适用于其中某个，判为丢弃或修改。
+    4. 不泄露答案：问题里不出现标准答案。
+    5. 答案简短明确：一个值、一个版本号或一句话的变化。
+  reasons:
+    not_unique: 描述不唯一
+    answer_not_in_evidence: 答案与原文不符
+    unnatural_question: 问题不自然
+    ambiguous: 有歧义
+    answer_leak: 问题泄露答案
+    other: 其他
+  rules:
+    - groups: [direct, version]  # answers extracted by rules: a spot check of the rules
+      spot_check_n: 20
+    - groups: [descriptive]  # LLM-rewritten questions: pre-review, then a human
+      prereview: true
+      spot_check_n: 10
+  llm:
+    model: qwen-plus-2025-12-01  # differs from the agent and from the rewriter
+    temperature: 0.0
+    max_tokens: 600
+    enable_thinking: false
+  spot_check_seed: 2026
+  summary_docs: [docs/design_decisions.md]  # D30

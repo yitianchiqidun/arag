@@ -1,0 +1,36 @@
+# How configs/evalset/tidb_params.yaml gets its candidates (research_agent/evalset/tidb_build.py).
+evalset: configs/evalset/tidb_params.yaml
+corpus: configs/corpora/tidb_docs.yaml
+new_ref: origin/release-8.5
+old_ref: origin/release-8.1
+base_version: v8.1.0
+target_version: v8.5.8  # newest v8.5 patch in docs-cn and on the tiup mirror (2026-11-03)
+seed: 2026
+max_per_group: 2
+min_description_chars: 10
+similar_params: 5
+
+composition:
+  direct:  # one question per parameter
+    system_variable:默认值: 15
+    system_variable:作用域: 5
+    system_variable:范围: 5  # 范围 / 取值范围
+    tikv_config:默认值: 12
+    tidb_config:默认值: 7
+    pd_config:默认值: 6
+  descriptive:  # 50 + 20 spare, default values, parameters not used above
+    system_variable: 35
+    tikv_config: 17
+    tidb_config: 10
+    pd_config: 8
+  version:  # stratified by release version and component
+    修改: 20
+    新增: 12
+    废弃/删除: 6
+
+rewriter:
+  model: qwen3.7-flash-2026-07-15  # not the agent (qwen3.7-plus) nor the reviewer / judge
+  temperature: 0.3
+  max_tokens: 300
+  enable_thinking: false
+max_revisions: 1
