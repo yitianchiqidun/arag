@@ -24,6 +24,10 @@ class TiDBConfig(BaseModel):
     readonly_user: str = "agent_ro"
     readonly_password_env: str = "TIDB_RO_PASSWORD"  # passwords only in .env
     admin_user: str = "root"  # used for confirmed writes and for setup
+    # SHOW CONFIG needs the CONFIG privilege (which also allows SET CONFIG): its own account,
+    # CONFIG only; the password falls back to the read-only one (stage 10, D37).
+    config_user: str = "agent_cfg"
+    config_password_env: str = "TIDB_CFG_PASSWORD"
     admin_password_env: str = "TIDB_ADMIN_PASSWORD"  # empty for a fresh playground
     max_rows: int = Field(default=200, ge=1)  # rows a read-only query returns at most
     timeout_ms: int = Field(default=10_000, ge=100)  # max_execution_time of read-only queries
@@ -173,6 +177,15 @@ def readonly_database(cfg: TiDBConfig) -> PyMySQLDatabase:
         cfg.database,
         session_sql=[f"SET SESSION max_execution_time = {int(cfg.timeout_ms)}"],
     )
+
+
+def config_password(cfg: TiDBConfig) -> str:
+    return os.environ.get(cfg.config_password_env) or os.environ.get(cfg.readonly_password_env, "")
+
+
+def config_database(cfg: TiDBConfig) -> PyMySQLDatabase:
+    """The connection of :class:`~research_agent.tidb.config_reader.ConfigReader`."""
+    return PyMySQLDatabase(cfg.host, cfg.port, cfg.config_user, config_password(cfg), None)
 
 
 def admin_database(cfg: TiDBConfig, database: str | None = None) -> PyMySQLDatabase:

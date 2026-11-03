@@ -16,6 +16,8 @@ from research_agent.tidb.db import (
     DatabaseError,
     TiDBConfig,
     admin_database,
+    config_database,
+    config_password,
     readonly_database,
 )
 from research_agent.tidb.readonly import check_identifier
@@ -62,6 +64,15 @@ def create_readonly_user(admin: Database, cfg: TiDBConfig, password: str) -> Non
         admin.execute(grant)
 
 
+def create_config_user(admin: Database, cfg: TiDBConfig, password: str) -> None:
+    """``agent_cfg``: the CONFIG privilege only (SHOW CONFIG; it also allows SET CONFIG, which
+    the config reader never sends), no privilege on any table (D37)."""
+    user = [check_identifier(cfg.config_user), "%"]
+    admin.execute("CREATE USER IF NOT EXISTS %s@%s IDENTIFIED BY %s", [*user, password])
+    admin.execute("ALTER USER %s@%s IDENTIFIED BY %s", [*user, password])
+    admin.execute(f"GRANT CONFIG ON *.* TO '{check_identifier(cfg.config_user)}'@'%'")
+
+
 def setup(cfg: TiDBConfig, size: DataSize | None = None, seed: int = 2026) -> dict[str, int]:
     """Create the database, load the sample data if the database is new, and create the
     read-only account (password from ``cfg.readonly_password_env``)."""
@@ -76,6 +87,7 @@ def setup(cfg: TiDBConfig, size: DataSize | None = None, seed: int = 2026) -> di
     if not exists:
         counts = load(admin_database(cfg), size, seed)
     create_readonly_user(server, cfg, password)
+    create_config_user(server, cfg, config_password(cfg))
     return counts
 
 
@@ -96,6 +108,24 @@ def verify_readonly(cfg: TiDBConfig) -> dict[str, str | None]:
         sql = probe.format(db=cfg.database)
         try:
             ro.execute(sql)
+            out[sql] = None
+        except DatabaseError as e:
+            out[sql] = str(e) if e.code in PRIVILEGE_ERRORS else None
+    return out
+
+
+def verify_config_user(cfg: TiDBConfig) -> dict[str, str | None]:
+    """The config account reads configuration and nothing else: SHOW CONFIG must work, and
+    reading or writing a table must be refused for lack of privileges."""
+    db = config_database(cfg)
+    db.query("SHOW CONFIG WHERE type = 'pd' AND name LIKE 'schedule.max-store-down-time'")
+    out: dict[str, str | None] = {}
+    for sql in (
+        f"SELECT id, amount FROM {cfg.database}.orders LIMIT 1",  # COUNT(*) is always allowed
+        WRITE_PROBES[2].format(db=cfg.database),
+    ):
+        try:
+            db.query(sql) if sql.startswith("SELECT") else db.execute(sql)
             out[sql] = None
         except DatabaseError as e:
             out[sql] = str(e) if e.code in PRIVILEGE_ERRORS else None
