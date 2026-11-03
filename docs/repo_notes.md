@@ -157,3 +157,4 @@ flowchart TD
 7. 查询向量和句子向量用同样的方式编码。Qwen3-Embedding 的模型卡建议查询端加指令前缀（`prompt_name="query"`），上游没有加。这是一个低成本的检索改进点，可以留到阶段 5c 和 rerank 一起评估。
 8. `batch_runner` 找不到句子索引时只打印一条警告，然后**静默去掉 semantic_search** 继续跑，完整版会在不知不觉中变成消融版。我们的 `build_tool_registry` 改为直接报错。
 9. （阶段 3 发现）工具和 `BaseAgent` 统计 token 时调用 `tiktoken.encode(text)`，遇到 `<|endoftext|>` 这类特殊 token 的字面文本会直接抛异常，**整道题报错**。基准语料里没有这种文本，但讲分词器和对话模板的技术文档里会出现。我们在包装层把工具、Agent 和普通 RAG 读取器的分词器换成“把特殊 token 当普通文本编码”的版本（`research_agent/agent/tools.py` 的 `PlainTextEncoding`），上游文件不改。复现见 `tests/research_agent/test_ablation.py`。
+10. （阶段 3 发现）`build_index.py` 用 bf16（Qwen3-Embedding 的默认精度）编码，一句话的向量会随它和哪些句子分在同一批而变化，在 MuSiQue 句子上最大偏差约 5e-3，足以改变检索排序。因此重建一次索引，检索结果就可能不同（D24）。
