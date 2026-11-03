@@ -123,10 +123,13 @@ class AssistantApp:
                 }
                 f.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
                 yield event
-            f.writelines(json.dumps(
-                        {"turn": turn, "kind": "doc_trace", **doc.model_dump()}, ensure_ascii=False
-                    )
-                    + "\n" for doc in (self.docs.last if self.docs is not None else []))
+            f.writelines(
+                json.dumps(
+                    {"turn": turn, "kind": "doc_trace", **doc.model_dump()}, ensure_ascii=False
+                )
+                + "\n"
+                for doc in (self.docs.last if self.docs is not None else [])
+            )
 
     def ask(self, session_id: str, question: str) -> Iterator[dict[str, Any]]:
         yield from self._trace(session_id, self.assistant.ask(session_id, question), "ask")
