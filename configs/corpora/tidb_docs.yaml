@@ -1,0 +1,60 @@
+# TiDB Chinese documentation (pingcap/docs-cn, CC BY-SA 3.0), core subset for operations
+# diagnosis (design_decisions.md D22). Versions are branches, read as origin/<branch>:
+#   python -m research_agent.ingest fetch configs/corpora/tidb_docs.yaml
+#   python -m research_agent.ingest inspect configs/corpora/tidb_docs.yaml --ref origin/release-8.5
+name: tidb_docs
+repo_url: https://github.com/pingcap/docs-cn
+repo_dir: data/corpora/docs-cn
+branches: [release-8.5, release-8.1]
+
+loader:
+  include:
+    # Parameter references
+    - system-variables.md
+    - tidb-configuration-file.md
+    - tikv-configuration-file.md
+    - pd-configuration-file.md
+    - command-line-flags-for-tidb-configuration.md
+    - command-line-flags-for-tikv-configuration.md
+    - command-line-flags-for-pd-configuration.md
+    # Error codes
+    - error-codes.md
+    # Troubleshooting and tuning
+    - tidb-troubleshooting-map.md
+    - troubleshoot-*.md
+    - tune-*.md
+    - performance-tuning-*.md
+    - sql-tuning-overview.md
+    - explain-*.md
+    - identify-slow-queries.md
+    - analyze-slow-queries.md
+    - statement-summary-tables.md
+    - tidb-performance-tuning-config.md
+    - metadata-lock.md
+    - sql-plan-management.md
+    - optimizer-hints.md
+    - configure-memory-usage.md
+    # Added for the fault scenarios: statistics, transaction modes, diagnosis tables
+    - statistics.md
+    - optimistic-transaction.md
+    - pessimistic-transaction.md
+    - information-schema/information-schema-slow-query.md
+    - information-schema/information-schema-data-lock-waits.md
+    - information-schema/information-schema-tidb-trx.md
+    - information-schema/information-schema-deadlocks.md
+    # Release notes v8.1.x - v8.5.x
+    - releases/release-8.[1-5].*.md
+  exclude:
+    - explain-mpp.md  # TiFlash MPP mode (TiFlash is out of scope)
+  link_targets: false  # link targets are ~15% of the tokens and the agent cannot follow them
+
+chunker:
+  max_tokens: 1000
+
+sentence_split: multilingual
+
+embedding:
+  model: Qwen/Qwen3-Embedding-0.6B
+  device: cuda:0
+  batch_size: 16
+embedding_dtype: float32
