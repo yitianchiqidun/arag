@@ -19,7 +19,13 @@ from research_agent.agent.tools import build_tool_registry, plain_text_tokens, s
 from research_agent.assistant.routing import Channel
 from research_agent.baselines.naive_rag import ChunkIndex, NaiveRAG
 from research_agent.config import RunConfig
-from research_agent.eval.citations import load_chunk_refs, record_citations
+from research_agent.eval.citations import (
+    ChunkRef,
+    Citation,
+    load_chunk_refs,
+    record_citations,
+    shown_chunk_ids,
+)
 from research_agent.eval.runner import RecordingAgent
 from research_agent.llm.client import client_from_config
 from research_agent.llm.pricing import PricingTable
@@ -30,6 +36,45 @@ class DocCitation(BaseModel):
     chunk_id: str
     label: str  # "doc › heading › …"
     status: str  # read / snippet / unseen / unknown
+    cited: bool = True  # False: read by A-RAG but not cited in its answer (see doc_citations)
+
+
+UNCITED_NOTE = "（读过，回答中未标注）"
+
+
+def doc_citations(
+    record: dict[str, Any], refs: dict[str, ChunkRef], read_fallback: bool
+) -> list[DocCitation]:
+    """The chunks an answer cites; with ``read_fallback`` and no citation the agent had seen,
+    the chunks it read in full instead.
+
+    A-RAG often answers without writing chunk ids (10% of the stage 4 answers, all correct
+    and all after reading the gold chunk); without the fallback the assistant's evidence
+    check would refuse them (D32). Naive RAG gets no fallback: every retrieved chunk is in its
+    prompt, so "in the context" says nothing about what the answer used.
+    """
+    cited = [
+        DocCitation(chunk_id=c.chunk_id, label=c.label(), status=c.status)
+        for c in record_citations(record, refs)
+    ]
+    if not read_fallback or any(c.status in ("read", "snippet") for c in cited):
+        return cited
+    read: list[str] = []
+    for step in record.get("trajectory") or []:
+        if step.get("tool_name") != "read_chunk":
+            continue
+        full, _ = shown_chunk_ids([("read_chunk", str(step.get("tool_result", "")))])
+        read += sorted(full - set(read), key=lambda cid: (len(cid), cid))
+    fallback = []
+    for cid in read:
+        ref = refs.get(cid, ChunkRef())
+        label = Citation(
+            chunk_id=cid, status="read", doc=ref.doc, headings=ref.headings, sections=ref.sections
+        ).label()
+        fallback.append(
+            DocCitation(chunk_id=cid, label=label + UNCITED_NOTE, status="read", cited=False)
+        )
+    return cited + fallback
 
 
 class DocAnswer(BaseModel):
@@ -54,12 +99,6 @@ class DocRetriever:
         self._prompt = build_system_prompt(load_upstream_prompt(), run_config.agent)
         self._naive: tuple[ChunkIndex, Any] | None = None
         self._lock = threading.Lock()
-
-    def _citations(self, record: dict[str, Any]) -> list[DocCitation]:
-        return [
-            DocCitation(chunk_id=c.chunk_id, label=c.label(), status=c.status)
-            for c in record_citations(record, self.refs)
-        ]
 
     def arag(self, question: str) -> DocAnswer:
         recorder = TraceRecorder(agent_has_tools=True)
@@ -87,7 +126,7 @@ class DocRetriever:
             channel="arag",
             question=question,
             answer=str(result.get("answer") or ""),
-            citations=self._citations(record),
+            citations=doc_citations(record, self.refs, read_fallback=True),
             steps=[{"tool": s.get("tool_name"), "args": s.get("arguments")} for s in trajectory],
             cost=llm.usage_summary().cost,
             latency_s=round(time.perf_counter() - start, 2),
@@ -132,7 +171,7 @@ class DocRetriever:
             channel="naive_rag",
             question=question,
             answer=str(result.get("answer") or ""),
-            citations=self._citations(record),
+            citations=doc_citations(record, self.refs, read_fallback=False),
             steps=[{"tool": "dense_retrieval", "args": {"top_k": self.cfg.naive_rag.top_k}}],
             cost=llm.usage_summary().cost,
             latency_s=round(time.perf_counter() - start, 2),
