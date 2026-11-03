@@ -24,6 +24,7 @@ import io
 import json
 import os
 import pickle
+import sys
 import tempfile
 import time
 from datetime import date, datetime
@@ -133,6 +134,26 @@ class BuildReport(BaseModel):
     sentence_embed_seconds: float = 0.0
     chunk_embed_seconds: float = 0.0  # whole chunks are long: most of a full build's time
     seconds: float = 0.0
+    # Process peaks so far (the whole build when run from the CLI); None when unknown.
+    peak_rss_mib: float | None = None
+    peak_gpu_allocated_mib: float | None = None
+    peak_gpu_reserved_mib: float | None = None
+
+
+def _peak_memory() -> dict[str, float | None]:
+    """Peak resident memory of this process and peak CUDA memory of torch, in MiB."""
+    peaks: dict[str, float | None] = {"peak_rss_mib": None}
+    try:
+        import resource
+
+        peaks["peak_rss_mib"] = round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
+    except ImportError:  # not on Windows
+        pass
+    torch = sys.modules.get("torch")  # only if the embedder loaded it
+    if torch is not None and torch.cuda.is_available() and torch.cuda.is_initialized():
+        peaks["peak_gpu_allocated_mib"] = round(torch.cuda.max_memory_allocated() / 2**20)
+        peaks["peak_gpu_reserved_mib"] = round(torch.cuda.max_memory_reserved() / 2**20)
+    return peaks
 
 
 class DocChanges(BaseModel):
@@ -350,6 +371,8 @@ def build_index(
     )
     _atomic_write(out / MANIFEST_FILE, (manifest.model_dump_json(indent=1) + "\n").encode())
     report.seconds = round(time.perf_counter() - start, 1)
+    for name, value in _peak_memory().items():
+        setattr(report, name, value)
     _atomic_write(out / REPORT_FILE, (report.model_dump_json(indent=1) + "\n").encode())
     return report
 

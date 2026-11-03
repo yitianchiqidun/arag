@@ -97,6 +97,7 @@ def test_full_build_writes_the_upstream_format(tmp_path: Path) -> None:
     out = tmp_path / "build"
     report = build(V1, out, FakeEmbedder())
     assert report.mode == "full" and report.docs_added == ["docs/a.md", "docs/b.md", "docs/c.md"]
+    assert report.peak_rss_mib is not None and report.peak_rss_mib > 0
 
     records = json.loads((out / "chunks.json").read_text())
     assert [r["id"] for r in records] == ["0", "1", "2"]
