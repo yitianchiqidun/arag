@@ -23,7 +23,7 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel
 
-from research_agent.diagnosis.scenarios import SCENARIOS, Scenario
+from research_agent.diagnosis.scenarios import SCENARIOS, SUPPLEMENTARY, Scenario
 
 MAX_CONFIRMATIONS = 3
 
@@ -218,7 +218,9 @@ def main(
     parser = argparse.ArgumentParser(prog="python -m research_agent.diagnosis")
     parser.add_argument("--out", default="results/stage8/scenarios")
     parser.add_argument("--config", default="configs/assistant.yaml")
-    parser.add_argument("--only", default=None, help="comma-separated scenario names")
+    parser.add_argument(
+        "--only", default=None, help="comma-separated scenario names (also the supplementary ones)"
+    )
     args = parser.parse_args(argv)
     from research_agent.upstream import load_env
 
@@ -241,10 +243,9 @@ def main(
     else:
         app = make_app(audit_file)
     names = set(args.only.split(",")) if args.only else None
+    pool = SCENARIOS if names is None else SCENARIOS + SUPPLEMENTARY
     scenarios = [
-        cls(lambda: admin_database(cfg.tidb))
-        for cls in SCENARIOS
-        if names is None or cls.name in names
+        cls(lambda: admin_database(cfg.tidb)) for cls in pool if names is None or cls.name in names
     ]
     results = run_all(app, scenarios, out, audit_file)
     print(summary_markdown(results))

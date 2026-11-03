@@ -287,6 +287,10 @@ class StaleStats(Scenario):
 
     def inject(self) -> None:
         admin = self.connect()
+        # A clean baseline first: statistics left by an earlier run may already know the skew,
+        # and then there is no fault to find (it happened once, see D34).
+        if not self._analyze_until_accurate(admin):
+            raise RuntimeError("could not get accurate statistics for orders before injecting")
         admin.execute("SET GLOBAL tidb_enable_auto_analyze = OFF")
         for shift in (self.OFFSET, self.OFFSET + 30_000):  # two copies of the 30,000 orders
             admin.execute(
@@ -298,9 +302,27 @@ class StaleStats(Scenario):
         while time.monotonic() < deadline:  # TiDB writes the modify count back periodically
             rows = admin.query("SHOW STATS_META WHERE Table_name = 'orders'").rows
             if rows and int(rows[0][4]) >= 60_000:
-                return
+                break
             time.sleep(3)
-        raise TimeoutError("the modify count of orders did not reach 60000")
+        else:
+            raise TimeoutError("the modify count of orders did not reach 60000")
+        plan = " ".join(str(r[0]) for r in admin.query("EXPLAIN " + self.QUERY).rows)
+        if "IndexLookUp" not in plan:  # the stale estimate must lead to the index plan
+            raise RuntimeError(f"the fault is not visible, the plan is: {plan}")
+
+    def _analyze_until_accurate(self, admin: Database) -> bool:
+        """ANALYZE until the row count of the statistics matches the table: an ANALYZE right
+        after a large DELETE was seen to count the deleted rows too."""
+        deadline = time.monotonic() + self.MAX_WAIT_S
+        while True:
+            admin.execute("ANALYZE TABLE orders")
+            meta = admin.query("SHOW STATS_META WHERE Table_name = 'orders'").rows
+            count = admin.query("SELECT COUNT(*) FROM orders").rows
+            if meta and count and int(meta[0][5]) == int(count[0][0]):
+                return True
+            if time.monotonic() > deadline:
+                return False
+            time.sleep(5)
 
     def workload(self) -> None:
         app = self.connect()
@@ -319,14 +341,24 @@ class StaleStats(Scenario):
         )
 
     def cleanup(self) -> None:
-        self._run_all(
-            self.connect(),
-            [
-                f"DELETE FROM orders WHERE id > {self.OFFSET}",
-                "ANALYZE TABLE orders",
-                "SET GLOBAL tidb_enable_auto_analyze = ON",
-            ],
-        )
+        admin = self.connect()
+        self._run_all(admin, [f"DELETE FROM orders WHERE id > {self.OFFSET}"])
+        try:
+            if not self._analyze_until_accurate(admin):
+                self.cleanup_errors.append("statistics of orders still count the deleted rows")
+        except DatabaseError as e:
+            self.cleanup_errors.append(f"ANALYZE TABLE orders: {e}")
+        self._run_all(admin, ["SET GLOBAL tidb_enable_auto_analyze = ON"])
+
+
+class MissingIndexOnTiDB(MissingIndex):
+    """The missing index fault with a symptom that says the database is TiDB: tells a routing
+    failure apart from a diagnosis failure. Not in the default set."""
+
+    name = "missing_index_tidb"
+    title = "缺少索引（症状里说明是 TiDB）"
+    symptom = "我们的订单库跑在 TiDB 上。" + MissingIndex.symptom
 
 
 SCENARIOS: tuple[type[Scenario], ...] = (MissingIndex, MemoryQuota, LockWait, StaleStats)
+SUPPLEMENTARY: tuple[type[Scenario], ...] = (MissingIndexOnTiDB,)

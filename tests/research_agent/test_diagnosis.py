@@ -34,6 +34,8 @@ def db() -> FakeDatabase:
             "STATS_META": META,
             "SHOW INDEX": INDEXES,
             "CONNECTION_ID": QueryResult(columns=["id"], rows=[[42]]),
+            "COUNT(*) FROM orders": QueryResult(columns=["n"], rows=[[90000]]),
+            "EXPLAIN": QueryResult(columns=["id"], rows=[["HashAgg_7"], ["IndexLookUp_16"]]),
         }
     )
 
@@ -98,8 +100,8 @@ def test_stale_stats_imports_rows_and_cleans_up(db: FakeDatabase) -> None:
     s = sc.StaleStats(lambda: db)
     s.inject()
     inserted = statements(db)
-    assert inserted[0] == "SET GLOBAL tidb_enable_auto_analyze = OFF"
-    assert [sql.split("SELECT id + ")[1].split(",")[0] for sql in inserted[1:]] == [
+    assert inserted[:2] == ["ANALYZE TABLE orders", "SET GLOBAL tidb_enable_auto_analyze = OFF"]
+    assert [sql.split("SELECT id + ")[1].split(",")[0] for sql in inserted[2:]] == [
         "1000000",
         "1030000",
     ]
@@ -110,6 +112,7 @@ def test_stale_stats_imports_rows_and_cleans_up(db: FakeDatabase) -> None:
         "ANALYZE TABLE orders",
         "SET GLOBAL tidb_enable_auto_analyze = ON",
     ]
+    assert s.cleanup_errors == []
     assert s.accepts(
         {"kind": "analyze_table", "target": "shop.orders", "statement": "ANALYZE TABLE shop.orders"}
     )
@@ -127,6 +130,12 @@ def test_stale_stats_imports_rows_and_cleans_up(db: FakeDatabase) -> None:
             "statement": "SET GLOBAL tidb_enable_auto_analyze = 'OFF'",
         }
     )
+
+
+def test_stale_stats_refuses_to_run_without_a_visible_fault(db: FakeDatabase) -> None:
+    db.responses["EXPLAIN"] = QueryResult(columns=["id"], rows=[["TableReader_12"]])
+    with pytest.raises(RuntimeError, match="not visible"):
+        sc.StaleStats(lambda: db).inject()
 
 
 def test_lock_wait_holds_a_row_lock_until_cleanup(db: FakeDatabase) -> None:
