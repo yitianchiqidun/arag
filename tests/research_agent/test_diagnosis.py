@@ -289,3 +289,20 @@ def test_run_all_stops_at_the_cost_limit(tmp_path: Path) -> None:
     results = run_all(app, scenarios, tmp_path, tmp_path / "audit.jsonl", refs=REFS, max_cost=0.005)
     assert len(results) == 1 and scenarios[1].log == []
     assert "回答引用文档 1 / 1" in (tmp_path / "summary.md").read_text("utf-8")
+
+
+def test_account_locked_creates_and_drops_the_locked_user(db: FakeDatabase) -> None:
+    s = sc.AccountLocked(lambda: db)
+    s.inject()
+    s.cleanup()
+    assert statements(db) == [
+        "CREATE USER IF NOT EXISTS %s@%s IDENTIFIED BY %s",
+        "GRANT SELECT ON shop.* TO 'report'@'%'",
+        "ALTER USER 'report'@'%' ACCOUNT LOCK",
+        "DROP USER IF EXISTS 'report'@'%'",
+    ]
+    assert s.expected_write is None and not s.accepts({"kind": "set_global"})
+    assert (
+        missing_keywords("账号 report 被锁定，需要 ALTER USER ... ACCOUNT UNLOCK", s.keywords())
+        == []
+    )

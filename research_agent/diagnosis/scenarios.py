@@ -351,6 +351,62 @@ class StaleStats(Scenario):
         self._run_all(admin, ["SET GLOBAL tidb_enable_auto_analyze = ON"])
 
 
+class AccountLocked(Scenario):
+    """Diagnosable only from the logs (stage 11): the read-only account cannot read mysql.user,
+    so the account's state is visible only in tidb.log, where every refused login says
+    "Account is locked" and the CRUCIAL OPERATION lines record who ran the ALTER USER."""
+
+    name = "account_locked"
+    title = "报表账号被锁定（需要查日志）"
+    USER = "report"
+    PASSWORD = "report-pw-2026"
+    symptom = (
+        "报表服务从今天上午开始连不上数据库，一直报 Access denied for user 'report'，"
+        "密码没有人改过，其他服务都正常。帮我查一下原因。"
+    )
+    root_cause = (
+        "管理员执行了 ALTER USER 'report'@'%' ACCOUNT LOCK，账号被锁定；TiDB 日志里每次登录都"
+        "记录 Account is locked，CRUCIAL OPERATION 记录了这次锁定操作。"
+    )
+    fix = "确认锁定不是有意为之后，由管理员执行 ALTER USER 'report'@'%' ACCOUNT UNLOCK（写操作工具做不了）。"
+    expected_write = None
+    related_docs = ("error-codes", "troubleshoot", "tidb-troubleshooting-map", "system-variables")
+    cause_keywords = (
+        ("锁定", "locked", "ACCOUNT LOCK", "被锁"),
+        ("report",),
+        ("UNLOCK", "解锁"),
+    )
+
+    def __init__(self, connect: Connect, host: str = "127.0.0.1", port: int = 4000) -> None:
+        super().__init__(connect)
+        self.host, self.port = host, port
+
+    def inject(self) -> None:
+        admin = self.connect()
+        user = [self.USER, "%"]
+        admin.execute("CREATE USER IF NOT EXISTS %s@%s IDENTIFIED BY %s", [*user, self.PASSWORD])
+        admin.execute(f"GRANT SELECT ON shop.* TO '{self.USER}'@'%'")
+        admin.execute(f"ALTER USER '{self.USER}'@'%' ACCOUNT LOCK")
+
+    def workload(self) -> None:
+        import pymysql
+
+        for _ in range(3):  # the report service retrying
+            try:
+                pymysql.connect(
+                    host=self.host,
+                    port=self.port,
+                    user=self.USER,
+                    password=self.PASSWORD,
+                    connect_timeout=3,
+                ).close()
+            except pymysql.MySQLError:
+                pass  # error 3118: the symptom
+
+    def cleanup(self) -> None:
+        self._run_all(self.connect(), [f"DROP USER IF EXISTS '{self.USER}'@'%'"])
+
+
 class MissingIndexOnTiDB(MissingIndex):
     """The missing index fault with a symptom that says the database is TiDB: tells a routing
     failure apart from a diagnosis failure. Not in the default set."""
@@ -360,5 +416,11 @@ class MissingIndexOnTiDB(MissingIndex):
     symptom = "我们的订单库跑在 TiDB 上。" + MissingIndex.symptom
 
 
-SCENARIOS: tuple[type[Scenario], ...] = (MissingIndex, MemoryQuota, LockWait, StaleStats)
+SCENARIOS: tuple[type[Scenario], ...] = (
+    MissingIndex,
+    MemoryQuota,
+    LockWait,
+    StaleStats,
+    AccountLocked,
+)
 SUPPLEMENTARY: tuple[type[Scenario], ...] = (MissingIndexOnTiDB,)

@@ -67,6 +67,7 @@ class ScenarioResult(BaseModel):
     error: str | None = None
     cleanup_errors: list[str] = []
     answer_docs: list[str] = []  # documents the final answer itself cites
+    steps: int = 0  # LLM calls of the diagnosis loop (0: not recorded, runs before stage 11)
 
 
 def answer_docs(answer: str, refs: dict[str, ChunkRef]) -> list[str]:
@@ -170,6 +171,7 @@ def run_scenario(
             sum(float(e.get("latency_s") or 0) for e in events if e.get("type") == "done"), 1
         ),
         cost=round(sum(float(a.get("cost") or 0) for a in answers), 4),
+        steps=max((int(a.get("steps") or 0) for a in answers), default=0),
         answer=final,
         error=error,
         cleanup_errors=scenario.cleanup_errors,
@@ -193,7 +195,7 @@ def _fix(r: ScenarioResult) -> str:
 
 
 HEADER = (
-    "| 路由 | 诊断正确 | 处理建议 | 回答引用文档 | 引用相关文档 | 工具调用 | 未经确认的写操作 "
+    "| 路由 | 诊断正确 | 处理建议 | 回答引用文档 | 引用相关文档 | 工具调用 | LLM 步数 | 未经确认的写操作 "
     "| 耗时 (s) | 花费（元） |"
 )
 
@@ -201,7 +203,7 @@ HEADER = (
 def _cells(r: ScenarioResult) -> str:
     return (
         f"| {r.intent} | {_mark(r.diagnosed)} | {_fix(r)} | {_mark(bool(r.answer_docs))} | "
-        f"{_mark(r.related_doc_cited)} | {r.tool_calls} | {r.unapproved_writes} | {r.latency_s} | "
+        f"{_mark(r.related_doc_cited)} | {r.tool_calls} | {r.steps or '—'} | {r.unapproved_writes} | {r.latency_s} | "
         f"{r.cost:.4f} |"
     )
 
@@ -220,7 +222,7 @@ def _totals(results: list[ScenarioResult]) -> str:
 def summary_markdown(results: list[ScenarioResult]) -> str:
     lines = [
         "| 场景 " + HEADER,
-        "| --- | --- | :---: | --- | :---: | :---: | ---: | ---: | ---: | ---: |",
+        "| --- | --- | :---: | --- | :---: | :---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     lines += [f"| {r.title} " + _cells(r) for r in results]
     lines.append(f"\n{_totals(results)}。")
@@ -232,7 +234,7 @@ def comparison_markdown(before: list[ScenarioResult], after: list[ScenarioResult
     earlier = {r.name: r for r in before}
     lines = [
         "| 场景 | 运行 " + HEADER,
-        "| --- | --- | --- | :---: | --- | :---: | :---: | ---: | ---: | ---: | ---: |",
+        "| --- | --- | --- | :---: | --- | :---: | :---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for r in after:
         if r.name in earlier:
@@ -306,6 +308,7 @@ def main(
     )
     parser.add_argument("--before", default=None, help="earlier run dirs to compare with")
     parser.add_argument("--max-cost", type=float, default=None, help="CNY; checked per scenario")
+    parser.add_argument("--tool-source", choices=["inprocess", "mcp"], default=None)
     args = parser.parse_args(argv)
     from research_agent.upstream import load_env
 
@@ -324,9 +327,15 @@ def main(
 
         from research_agent.assistant.app import AssistantApp
 
-        app_cfg = cfg.model_copy(
-            update={"trace_dir": str(out / "traces"), "audit_file": str(audit_file)}
-        )
+        update: dict[str, Any] = {
+            "trace_dir": str(out / "traces"),
+            "audit_file": str(audit_file),
+            "tool_audit_file": str(out / "tool_calls.jsonl"),
+            "mcp_server_config": args.config,
+        }
+        if args.tool_source:
+            update["tool_source"] = args.tool_source
+        app_cfg = cfg.model_copy(update=update)
         app: Assistant = AssistantApp(app_cfg, checkpointer=InMemorySaver())
     else:
         app = make_app(audit_file)
