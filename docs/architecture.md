@@ -25,10 +25,10 @@ flowchart LR
 | --- | --- | --- |
 | `condense` | router（qwen3.7-flash） | 有历史时，把“那这个参数在 v8.1 里呢？”改写成不看前文也能懂的问题；没有历史时不调用模型 |
 | `route` | router | 分成参数查询、跨文档研究、故障诊断、越界四类；输出不合法时按“研究”处理 |
-| `retrieve` | A-RAG 的 Agent（qwen3.7-plus） | 由 `Services.choose_channel(question, intent)` 选通道：A-RAG 多轮检索，或普通 RAG（要求引用，D29）。阶段 6 一律走 A-RAG，阶段 7 才按意图分流 |
+| `retrieve` | A-RAG 的 Agent（qwen3.7-plus） | 由 `Services.choose_channel(question, intent)` 选通道：A-RAG 多轮检索，或普通 RAG（要求引用，D29）。`fast_intents` 中的意图走普通 RAG；阶段 7 的对比显示参数查询走快通道准确率低 14 个百分点且不省钱，默认为空，即全部走 A-RAG（D32） |
 | `diagnose` | agent（qwen3.7-plus） | 工具调用循环，最多 12 步：12 个只读集群工具、`search_docs`（整个 A-RAG 作为一个工具）、3 个 `propose_*` 修改工具 |
 | `confirm` | — | 用 `interrupt()` 暂停整张图，等用户确认或拒绝；确认才执行，结果作为工具结果交还诊断循环 |
-| `check` | — | 回答背后没有证据（没有读过或看过片段的引用块，也没有集群数据）就拒答；诊断时集群连不上则明确说明 |
+| `check` | — | 回答背后没有证据（没有读过或看过片段的引用块，也没有集群数据）就拒答；诊断时集群连不上则明确说明。A-RAG 的回答没写块编号时，用它完整读过的块作为依据（D32） |
 | `refuse` | — | 越界问题，说明能做什么 |
 
 ## 数据流

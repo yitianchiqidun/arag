@@ -13,6 +13,11 @@ agent:  # the diagnosis loop (tools, write proposals)
   max_tokens: 4096
   enable_thinking: false
 
+# Intents answered by the fast channel (Naive RAG, asked to cite) instead of A-RAG. Empty:
+# A-RAG for every document question. Stage 7 measured routing param_lookup to the fast
+# channel: -14.3 pp accuracy, same cost, P50 latency 13.1 -> 7.3 s (D32), so it is off.
+fast_intents: []
+
 use_cluster: true  # the local tiup playground; tools report "集群不可用" when it is down
 checkpoint_db: data/assistant/sessions.sqlite
 trace_dir: data/assistant/traces
