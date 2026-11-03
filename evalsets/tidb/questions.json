@@ -80,46 +80,6 @@
   "review": "prereview"
  },
  {
-  "id": "tidb_params__descriptive__s015",
-  "source": "tidb_docs_v8.5",
-  "question": "TiDB 系统变量中，开启 statement summary tables 持久化后，用于限制持久化数据文件最大数量的那个只读变量的默认值是多少？",
-  "answer": "0",
-  "answer_aliases": [],
-  "question_type": "descriptive",
-  "evidence": "",
-  "evidence_chunks": [
-   "441"
-  ],
-  "evidence_docs": [
-   "system-variables.md"
-  ],
-  "evidence_quotes": [
-   "- 默认值：`0`"
-  ],
-  "closed_book": "ready",
-  "review": "prereview"
- },
- {
-  "id": "tidb_params__descriptive__s016",
-  "source": "tidb_docs_v8.5",
-  "question": "TiDB 系统变量中，用于动态限制单行数据大小且默认值为0的那个参数是什么？",
-  "answer": "0",
-  "answer_aliases": [],
-  "question_type": "descriptive",
-  "evidence": "",
-  "evidence_chunks": [
-   "448"
-  ],
-  "evidence_docs": [
-   "system-variables.md"
-  ],
-  "evidence_quotes": [
-   "- 默认值：`0`"
-  ],
-  "closed_book": "ready",
-  "review": "prereview"
- },
- {
   "id": "tidb_params__descriptive__s017",
   "source": "tidb_docs_v8.5",
   "question": "TiDB 中控制 Join Method Hint 是否影响 Join Reorder 优化的系统变量默认值是多少？",
@@ -258,26 +218,6 @@
   ],
   "evidence_quotes": [
    "+ 默认值：`40960`"
-  ],
-  "closed_book": "ready",
-  "review": "prereview"
- },
- {
-  "id": "tidb_params__descriptive__s045",
-  "source": "tidb_docs_v8.5",
-  "question": "TiKV 配置项中，单个 RocksDB Manifest 文件的最大大小默认是多少？",
-  "answer": "\"20MiB\"",
-  "answer_aliases": [],
-  "question_type": "descriptive",
-  "evidence": "",
-  "evidence_chunks": [
-   "518"
-  ],
-  "evidence_docs": [
-   "tikv-configuration-file.md"
-  ],
-  "evidence_quotes": [
-   "+ 默认值：`\"20MiB\"`"
   ],
   "closed_book": "ready",
   "review": "prereview"
@@ -2717,56 +2657,6 @@
   "evidence_quotes": [
    "| TiKV | `region-compact-check-interval`；`region-compact-check-step`；`region-compact-min-tombstones`；`region-compact-tombstones-percent`；`region-compact-min-redundant-rows`；`region-compact-redundant-rows-percent` | 废弃 | 由 `gc.auto-compaction` 配置组替代，用于控制自动 compaction 行为 #18727 @v01dstar |",
    "> 从 v7.5.7 和 v8.5.4 开始，该配置项被废弃，其功能由 `gc.auto-compaction.check-interval` 代替。"
-  ],
-  "closed_book": "ready",
-  "review": "auto"
- },
- {
-  "id": "tidb_params__version__v035",
-  "source": "tidb_docs_v8.5",
-  "question": "TiDB 系统变量 `tidb_enable_telemetry` 是在 TiDB 哪个版本被废弃的？",
-  "answer": "v8.5.7",
-  "answer_aliases": [
-   "8.5.7"
-  ],
-  "question_type": "version",
-  "evidence": "",
-  "evidence_chunks": [
-   "287",
-   "391"
-  ],
-  "evidence_docs": [
-   "releases/release-8.5.7.md",
-   "system-variables.md"
-  ],
-  "evidence_quotes": [
-   "| `tidb_enable_telemetry` | 废弃 | 从 v8.5.7 开始，TiDB 废弃该系统变量及 telemetry 功能。该变量仅为兼容性而保留，不再推荐使用。|",
-   "> - 从 v8.5.7 开始，TiDB 废弃了该系统变量和遥测功能。"
-  ],
-  "closed_book": "ready",
-  "review": "auto"
- },
- {
-  "id": "tidb_params__version__v036",
-  "source": "tidb_docs_v8.5",
-  "question": "TiDB 配置项 `enable-telemetry` 是在 TiDB 哪个版本被废弃的？",
-  "answer": "v8.5.7",
-  "answer_aliases": [
-   "8.5.7"
-  ],
-  "question_type": "version",
-  "evidence": "",
-  "evidence_chunks": [
-   "288",
-   "458"
-  ],
-  "evidence_docs": [
-   "releases/release-8.5.7.md",
-   "tidb-configuration-file.md"
-  ],
-  "evidence_quotes": [
-   "| TiDB | `enable-telemetry` | 废弃 | 从 v8.5.7 开始，TiDB 废弃该配置项及 telemetry 功能。该配置项仅为兼容性而保留，不再推荐使用。|",
-   "> - 从 v8.5.7 开始，TiDB 废弃了该配置项和遥测功能。"
   ],
   "closed_book": "ready",
   "review": "auto"

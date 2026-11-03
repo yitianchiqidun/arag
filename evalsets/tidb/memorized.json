@@ -340,26 +340,6 @@
   "review": null
  },
  {
-  "id": "tidb_params__descriptive__s034",
-  "source": "tidb_docs_v8.5",
-  "question": "TiDB 系统变量中，用于控制 statement summary tables 持久化开关的默认值是多少？",
-  "answer": "OFF",
-  "answer_aliases": [],
-  "question_type": "descriptive",
-  "evidence": "",
-  "evidence_chunks": [
-   "441"
-  ],
-  "evidence_docs": [
-   "system-variables.md"
-  ],
-  "evidence_quotes": [
-   "- 默认值：`OFF`"
-  ],
-  "closed_book": "closed_book",
-  "review": null
- },
- {
   "id": "tidb_params__descriptive__s036",
   "source": "tidb_docs_v8.5",
   "question": "TiKV 配置项中，关闭 gRPC 链接的超时时长默认是多少？",
@@ -597,26 +577,6 @@
    "+ 默认值：1h"
   ],
   "closed_book": "closed_book",
-  "review": null
- },
- {
-  "id": "tidb_params__descriptive__s071",
-  "source": "tidb_docs_v8.5",
-  "question": "TiDB 系统变量中，用于设置 coprocessor 协议 paging size 最小行数的参数默认值是多少？",
-  "answer": "128",
-  "answer_aliases": [],
-  "question_type": "descriptive",
-  "evidence": "",
-  "evidence_chunks": [
-   "409"
-  ],
-  "evidence_docs": [
-   "system-variables.md"
-  ],
-  "evidence_quotes": [
-   "- 默认值：`128`"
-  ],
-  "closed_book": "partial_memory",
   "review": null
  },
  {

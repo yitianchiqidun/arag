@@ -9,7 +9,7 @@
     "version"
    ],
    "prereview": false,
-   "ready": 88,
+   "ready": 86,
    "prereview_prompt_versions": {},
    "prereview_decisions": {},
    "prereview_reasons": {},
@@ -19,9 +19,9 @@
    "agreement_spot_check": null,
    "agreement_all_human": null,
    "changed_after_first": {},
-   "kept": 88,
+   "kept": 86,
    "kept_by_source": {
-    "auto": 88
+    "auto": 86
    },
    "kept_modified": 0,
    "dropped": 0,
@@ -32,16 +32,16 @@
     "descriptive"
    ],
    "prereview": true,
-   "ready": 62,
+   "ready": 57,
    "prereview_prompt_versions": {
-    "v1": 61
+    "v1": 56
    },
    "prereview_decisions": {
-    "drop": 18,
-    "keep": 43
+    "drop": 16,
+    "keep": 40
    },
    "prereview_reasons": {
-    "not_unique": 18,
+    "not_unique": 16,
     "answer_not_in_evidence": 1
    },
    "scope": {},
@@ -60,34 +60,34 @@
     "pairs": {}
    },
    "changed_after_first": {},
-   "kept": 43,
+   "kept": 40,
    "kept_by_source": {
-    "prereview": 43
+    "prereview": 40
    },
    "kept_modified": 0,
-   "dropped": 19,
+   "dropped": 17,
    "drop_reasons": {
-    "not_unique": 18,
+    "not_unique": 16,
     "answer_not_in_evidence": 1,
     "other": 1
    }
   }
  ],
  "without_first_judgment": 0,
- "kept": 131,
+ "kept": 126,
  "kept_by_group": {
-  "descriptive": 43,
+  "descriptive": 40,
   "direct": 50,
-  "version": 38
+  "version": 36
  },
- "rejected": 3,
+ "rejected": 12,
  "spares": {
   "direct": 18,
   "descriptive": 1
  },
- "memorized": 161,
+ "memorized": 159,
  "memorized_by_group": {
-  "descriptive": 58,
+  "descriptive": 56,
   "direct": 103
  },
  "closed_book_rate": {
