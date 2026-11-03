@@ -273,3 +273,32 @@ def test_embedding_device_can_come_from_the_environment(monkeypatch: pytest.Monk
     assert AssistantConfig.model_validate(base).embedding_device is None
     monkeypatch.setenv("EMBEDDING_DEVICE", "cpu")
     assert AssistantConfig.model_validate(base).embedding_device == "cpu"
+
+
+def test_confirmation_asks_for_the_full_conclusion_and_steps_are_counted() -> None:
+    agent = diagnosis_agent()
+    bot, _ = assistant("diagnosis", agent=agent)
+    events(bot.ask("s1", "订单查询变慢了"))
+    out = events(bot.confirm("s1", approved=True))
+    tool_messages = [m for m in agent.calls[-1] if m["role"] == "tool"]
+    assert tool_messages[-1]["content"].endswith(prompts.AFTER_CONFIRM)
+    answer = next(e for e in out if e["type"] == "answer")
+    assert answer["steps"] == 3  # slow_queries, the proposal, the conclusion
+
+
+def test_the_last_steps_carry_a_reminder() -> None:
+    def agent_script(messages: list[dict[str, Any]], tools: Any) -> dict[str, Any]:
+        if tools is None:
+            return {"content": "目前的结论：……；还缺：……"}
+        n = len([m for m in messages if m["role"] == "tool"])
+        return {"content": "", "tool_calls": [tool_call("transactions", {}, f"c{n}")]}
+
+    agent = FakeChat(agent_script)
+    bot, _ = assistant("diagnosis", agent=agent)
+    bot.services.max_steps = 3
+    out = events(bot.ask("s1", "查询变慢了"))
+    tools = [m["content"] for m in agent.calls[-1] if m["role"] == "tool"]
+    assert prompts.DIAG_STEPS_LEFT.format(left=2) in tools[0]
+    assert prompts.DIAG_STEPS_LEFT.format(left=1) in tools[1]
+    assert "预算" not in tools[2] and agent.calls[-1][-1]["content"] == prompts.DIAG_STEP_LIMIT
+    assert next(e for e in out if e["type"] == "answer")["text"].startswith("目前的结论")

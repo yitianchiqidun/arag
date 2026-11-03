@@ -8,8 +8,11 @@ confirmed writes, grounding check, multi-turn sessions and streamed events.
 - ``condense`` rewrites a follow-up ("那这个参数在 8.1 里呢？") into a standalone question.
 - ``route`` classifies the intent with a small model.
 - ``retrieve`` asks a document channel (A-RAG, or the fast channel in stage 7).
-- ``diagnose`` is a tool-calling loop over the read-only cluster tools, ``search_docs`` (A-RAG
-  as one tool) and three ``propose_*`` write tools. A proposal stops the loop; ``confirm``
+- ``diagnose`` is a tool-calling loop over the diagnosis tools of the registry
+  (``research_agent/toolkit``: cluster reads, logs, configuration, ``search_docs`` = A-RAG as
+  one tool, the report, three ``propose_*`` tools). Every call goes through the
+  :class:`ToolHarness` (permission, validation, budget, timeout, truncation, audit), whose
+  backend runs in this process or behind an MCP server. A proposal stops the loop; ``confirm``
   pauses the graph with ``interrupt()`` until the user approves or rejects it, runs it only if
   approved, and returns the outcome to the loop.
 - ``check`` refuses to answer without evidence (no citation and no cluster data).
@@ -36,11 +39,10 @@ from langgraph.types import Command, interrupt
 from research_agent.assistant import prompts
 from research_agent.assistant.retrieval import DocAnswer
 from research_agent.assistant.routing import Channel, ChatClient, classify, parse_json
-from research_agent.tidb.db import DatabaseError
-from research_agent.tidb.readonly import ReadOnlyTools, UnsafeSQL
+from research_agent.tidb.readonly import ReadOnlyTools
 from research_agent.tidb.write import PendingWrite, WriteExecutor, WriteTools
-
-EVIDENCE_STATUSES = ("read", "snippet")
+from research_agent.toolkit.harness import ToolHarness
+from research_agent.toolkit.local import EVIDENCE_STATUSES, InProcessTools
 
 
 class DocSource(Protocol):
@@ -56,6 +58,10 @@ class Services:
     reader: ReadOnlyTools | None = None  # None: no cluster
     writes: WriteTools | None = None
     executor: WriteExecutor | None = None
+    logs: Any = None  # LogSearch
+    configs: Any = None  # ConfigReader
+    reports: Any = None  # ReportWriter
+    tools: ToolHarness | None = None  # default: the in-process backend over these services
     choose_channel: Callable[[str, str], Channel] = lambda question, intent: "arag"
     max_steps: int = 12
     turn_timeout_s: float | None = None  # the diagnosis loop stops once a turn takes longer
@@ -77,6 +83,7 @@ class AssistantState(TypedDict, total=False):
     citations: list[dict[str, Any]]
     answer: str
     cost: float
+    steps: int  # LLM calls of the diagnosis loop in this turn
 
 
 def _emit(event: str, **data: Any) -> None:
@@ -89,117 +96,6 @@ def _text(reply: dict[str, Any]) -> str:
 
 def _cost(reply: dict[str, Any]) -> float:
     return float(reply.get("cost") or 0.0)
-
-
-# --- diagnosis tools ------------------------------------------------------------------------
-
-
-def _fn(
-    name: str, description: str, properties: dict[str, Any], required: list[str]
-) -> dict[str, Any]:
-    return {
-        "type": "function",
-        "function": {
-            "name": name,
-            "description": description,
-            "parameters": {"type": "object", "properties": properties, "required": required},
-        },
-    }
-
-
-_STR = {"type": "string"}
-_INT = {"type": "integer"}
-TOOLS = [
-    _fn(
-        "search_docs",
-        "查 TiDB 官方文档（多轮检索，较慢），返回带引用的回答。",
-        {"question": _STR},
-        ["question"],
-    ),
-    _fn(
-        "run_sql",
-        "执行一条只读 SQL（SELECT / SHOW / EXPLAIN / DESC），最多返回 200 行。",
-        {"sql": _STR},
-        ["sql"],
-    ),
-    _fn(
-        "show_variables",
-        "查看系统变量的全局值，pattern 是 SQL LIKE 模式。",
-        {"pattern": _STR},
-        ["pattern"],
-    ),
-    _fn(
-        "slow_queries",
-        "最近的慢查询（耗时、扫描行数、索引、SQL）。",
-        {"limit": _INT, "min_seconds": {"type": "number"}},
-        [],
-    ),
-    _fn(
-        "explain",
-        "查看 SELECT 的执行计划；analyze=true 会实际执行并给出实际行数。",
-        {"sql": _STR, "analyze": {"type": "boolean"}},
-        ["sql"],
-    ),
-    _fn("lock_waits", "当前的悲观锁等待：等待方、持有方事务及其 SQL。", {}, []),
-    _fn("transactions", "正在运行的事务，按开始时间排序。", {}, []),
-    _fn("deadlocks", "最近的死锁记录。", {"limit": _INT}, []),
-    _fn("statement_summary", "总耗时最多的 SQL 语句（statements_summary）。", {"limit": _INT}, []),
-    _fn(
-        "table_stats",
-        "表的统计信息健康度和修改行数，判断统计信息是否过期。",
-        {"table": _STR},
-        ["table"],
-    ),
-    _fn("table_schema", "表结构和索引（SHOW CREATE TABLE）。", {"table": _STR}, ["table"]),
-    _fn("bindings", "全局 SQL 绑定（可能强制执行计划）。", {}, []),
-    _fn("cluster_info", "集群各组件的版本和运行时间。", {}, []),
-    _fn(
-        "propose_set_global",
-        "提出修改系统变量的全局值（需要用户确认后才执行）。",
-        {"name": _STR, "value": _STR, "reason": _STR},
-        ["name", "value", "reason"],
-    ),
-    _fn(
-        "propose_analyze",
-        "提出对表执行 ANALYZE TABLE 重新收集统计信息（需要用户确认）。",
-        {"table": _STR, "reason": _STR},
-        ["table", "reason"],
-    ),
-    _fn(
-        "propose_create_index",
-        "提出在表上创建索引（需要用户确认）。",
-        {"table": _STR, "columns": {"type": "array", "items": _STR}, "reason": _STR},
-        ["table", "columns", "reason"],
-    ),
-]
-
-
-def _read_tool(reader: ReadOnlyTools, name: str, args: dict[str, Any]) -> str:
-    calls: dict[str, Callable[[], Any]] = {
-        "run_sql": lambda: reader.run_sql(str(args["sql"])),
-        "show_variables": lambda: reader.system_variables(str(args["pattern"])),
-        "slow_queries": lambda: reader.slow_queries(
-            int(args.get("limit", 10)), float(args.get("min_seconds", 0))
-        ),
-        "explain": lambda: reader.explain(str(args["sql"]), bool(args.get("analyze", False))),
-        "lock_waits": reader.lock_waits,
-        "transactions": reader.transactions,
-        "deadlocks": lambda: reader.deadlocks(int(args.get("limit", 10))),
-        "statement_summary": lambda: reader.statement_summary(int(args.get("limit", 10))),
-        "table_stats": lambda: reader.table_stats(str(args["table"])),
-        "table_schema": lambda: reader.table_schema(str(args["table"])),
-        "bindings": reader.bindings,
-        "cluster_info": reader.cluster_info,
-    }
-    return str(calls[name]().as_text())
-
-
-def _propose(writes: WriteTools, name: str, args: dict[str, Any]) -> PendingWrite:
-    if name == "propose_set_global":
-        return writes.propose_set_global(str(args["name"]), str(args["value"]))
-    if name == "propose_analyze":
-        return writes.propose_analyze(str(args["table"]))
-    return writes.propose_create_index(str(args["table"]), [str(c) for c in args["columns"]])
 
 
 # --- graph ----------------------------------------------------------------------------------
@@ -254,28 +150,42 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
             "cost": state.get("cost", 0.0) + doc.cost,
         }
 
+    harness = services.tools or ToolHarness(InProcessTools(services))
+
     def diagnose(state: AssistantState) -> dict[str, Any]:
+        fresh = not state.get("diag_messages")
         messages = list(state.get("diag_messages") or []) or [
             {"role": "system", "content": prompts.DIAGNOSE},
             {"role": "user", "content": state["standalone"]},
         ]
+        if fresh:
+            harness.start_turn()
         evidence = state.get("evidence", 0)
         cluster_down = state.get("cluster_down", False)
         citations = list(state.get("citations") or [])
         cost = state.get("cost", 0.0)
+        steps = state.get("steps", 0)
         llm = services.llm("agent")
-        for _ in range(services.max_steps):
+        tools = harness.schemas("diagnosis")
+
+        def done(answer: str, **extra: Any) -> dict[str, Any]:
+            return {
+                "diag_messages": messages,
+                "answer": answer,
+                "evidence": evidence,
+                "cluster_down": cluster_down,
+                "citations": citations,
+                "cost": cost,
+                "steps": steps,
+                "pending_write": None,
+                **extra,
+            }
+
+        while steps < services.max_steps:
             if services.deadline is not None and time.monotonic() > services.deadline:
-                return {
-                    "diag_messages": messages,
-                    "answer": prompts.DIAG_TIMEOUT,
-                    "evidence": evidence,
-                    "cluster_down": cluster_down,
-                    "citations": citations,
-                    "cost": cost,
-                    "pending_write": None,
-                }
-            reply = llm.chat(messages, tools=TOOLS, temperature=0.0)
+                return done(prompts.DIAG_TIMEOUT)
+            reply = llm.chat(messages, tools=tools, temperature=0.0)
+            steps += 1
             cost += _cost(reply)
             message = reply["message"]
             calls = message.get("tool_calls") or []
@@ -285,50 +195,25 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
                 else {"role": "assistant", "content": message.get("content") or ""}
             )
             if not calls:
-                return {
-                    "diag_messages": messages,
-                    "answer": _text(reply),
-                    "evidence": evidence,
-                    "cluster_down": cluster_down,
-                    "citations": citations,
-                    "cost": cost,
-                    "pending_write": None,
-                }
+                return done(_text(reply))
             pending: PendingWrite | None = None
             for call in calls:
                 name = call["function"]["name"]
                 args = parse_json(call["function"].get("arguments") or "{}")
                 _emit("tool_call", tool=name, args=args)
-                if name.startswith("propose_") and pending is None:
-                    try:
-                        if services.writes is None:
-                            raise UnsafeSQL("集群不可用，无法提出修改")
-                        pending = _propose(services.writes, name, args)
-                        pending.impact = f"{pending.impact}\n原因：{args.get('reason', '')}"
+                if name.startswith("propose_") and pending is not None:
+                    result = "未处理：一次只能提出一项修改，请等这项修改确认后再提出下一项。"
+                else:
+                    out = harness.call(name, args, "diagnosis")
+                    cost += out.cost
+                    evidence += out.evidence
+                    citations += out.citations
+                    cluster_down = cluster_down or out.cluster_down
+                    if out.pending is not None:
+                        pending = PendingWrite.model_validate(out.pending)
                         pending_call = call["id"]
                         continue  # its tool result is added after the user decides
-                    except (UnsafeSQL, DatabaseError) as e:
-                        result = f"无法提出修改：{e}"
-                elif name.startswith("propose_"):
-                    result = "未处理：一次只能提出一项修改，请等这项修改确认后再提出下一项。"
-                elif name == "search_docs":
-                    doc = services.docs.answer(
-                        str(args.get("question") or state["standalone"]), "arag"
-                    )
-                    cost += doc.cost
-                    labels = [f"Chunk {c.chunk_id}（{c.label}）" for c in doc.citations]
-                    citations += [c.model_dump() for c in doc.citations]
-                    evidence += sum(c.status in EVIDENCE_STATUSES for c in doc.citations)
-                    result = doc.answer + ("\n\n引用：" + "；".join(labels) if labels else "")
-                elif services.reader is None:
-                    result = "集群不可用：本地 TiDB 集群没有启动或无法连接。"
-                    cluster_down = True
-                else:
-                    try:
-                        result = _read_tool(services.reader, name, args)
-                        evidence += 1
-                    except (UnsafeSQL, DatabaseError, KeyError, ValueError) as e:
-                        result = f"执行失败：{e}"
+                    result = out.text
                 _emit("tool_result", tool=name, result=result[:2000])
                 messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
             if pending is not None:
@@ -338,9 +223,13 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
                     "evidence": evidence,
                     "citations": citations,
                     "cost": cost,
+                    "steps": steps,
                 }
-        # Step limit: one more call without tools for a conclusion from what was gathered,
-        # instead of discarding it (writes can no longer be proposed, only suggested).
+            left = services.max_steps - steps
+            if 0 < left <= 2 and messages[-1]["role"] == "tool":
+                messages[-1]["content"] += prompts.DIAG_STEPS_LEFT.format(left=left)
+        # Budget used up: one more call without tools for "the conclusion so far + what is
+        # missing", instead of discarding what was gathered (writes can only be suggested).
         messages.append({"role": "user", "content": prompts.DIAG_STEP_LIMIT})
         try:
             reply = llm.chat(messages, tools=None, temperature=0.0)
@@ -349,15 +238,7 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
             messages.append({"role": "assistant", "content": answer})
         except Exception:  # noqa: BLE001 - the canned message is still an answer
             answer = prompts.DIAG_NO_CONCLUSION
-        return {
-            "diag_messages": messages,
-            "answer": answer,
-            "evidence": evidence,
-            "cluster_down": cluster_down,
-            "citations": citations,
-            "cost": cost,
-            "pending_write": None,
-        }
+        return done(answer)
 
     def confirm(state: AssistantState) -> dict[str, Any]:
         pending = dict(state["pending_write"] or {})
@@ -381,7 +262,7 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
         _emit("tool_result", tool="confirm", approved=approved, result=outcome)
         messages = [
             *state["diag_messages"],
-            {"role": "tool", "tool_call_id": call_id, "content": outcome},
+            {"role": "tool", "tool_call_id": call_id, "content": outcome + prompts.AFTER_CONFIRM},
         ]
         return {
             "diag_messages": messages,
@@ -406,6 +287,7 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
             channel=state.get("channel"),
             citations=[c.get("label") for c in state.get("citations") or []],
             cost=round(state.get("cost", 0.0), 6),
+            steps=state.get("steps", 0),
         )
         return {
             "answer": answer,
@@ -499,6 +381,7 @@ class Assistant:
             "doc": None,
             "diag_messages": [],
             "cluster_down": False,
+            "steps": 0,
             "pending_write": None,
             "writes": [],
             "evidence": 0,

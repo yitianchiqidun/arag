@@ -11,11 +11,12 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import sys
 import threading
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -49,6 +50,17 @@ class AssistantConfig(BaseModel):
     embedding_device: str | None = Field(
         default_factory=lambda: os.environ.get("EMBEDDING_DEVICE") or None
     )
+    # Tools (stages 10-11): where they run, and the harness around every call (D37, D38).
+    tool_source: Literal["inprocess", "mcp"] = "inprocess"
+    # MCP mode: the server is started over stdio with this config (default: the same file).
+    mcp_server_config: str = Field(
+        default_factory=lambda: os.environ.get("ASSISTANT_CONFIG", "configs/assistant.yaml")
+    )
+    log_dir: str = "~/.tiup/data/arag"  # the tiup playground's component logs
+    report_dir: str = "data/assistant/reports"
+    tool_audit_file: str = "data/assistant/tool_calls.jsonl"
+    max_tool_calls: int = 16  # per turn
+    max_doc_searches: int = 2  # per turn
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> AssistantConfig:
@@ -69,7 +81,43 @@ class TracedDocs:
         return doc
 
 
+def attach_tools(services: Any, cfg: AssistantConfig) -> None:
+    """The tools' own services on ``services``: cluster reads and proposals (when TiDB is
+    reachable), logs, configuration, reports. Shared by the agent and the MCP server."""
+    from research_agent.assistant.report import ReportWriter
+    from research_agent.tidb.logs import LogSearch
+
+    services.logs = LogSearch(cfg.log_dir)
+    services.reports = ReportWriter(cfg.report_dir)
+    if not cfg.use_cluster:
+        return
+    from research_agent.tidb import cluster
+    from research_agent.tidb.config_reader import ConfigReader
+    from research_agent.tidb.db import config_database, readonly_database
+    from research_agent.tidb.readonly import ReadOnlyTools
+    from research_agent.tidb.write import WriteTools
+
+    if cluster.port_open(cfg.tidb.host, cfg.tidb.port):
+        reader = ReadOnlyTools(readonly_database(cfg.tidb), cfg.tidb.max_rows)
+        services.reader = reader
+        services.writes = WriteTools(reader)
+        services.configs = ConfigReader(config_database(cfg.tidb), cfg.tidb.max_rows)
+
+
+def mcp_command(cfg: AssistantConfig) -> list[str]:
+    return [
+        sys.executable,
+        "-m",
+        "research_agent.toolkit.mcp_server",
+        "--config",
+        cfg.mcp_server_config,
+    ]
+
+
 def build_services(cfg: AssistantConfig) -> tuple[Services, TracedDocs]:
+    from research_agent.toolkit.harness import ToolHarness, TurnBudget
+    from research_agent.toolkit.local import InProcessTools, ToolBackend
+
     run = RunConfig.from_yaml(cfg.run_config)
     if cfg.embedding_device:
         embedding = run.embedding.model_copy(update={"device": cfg.embedding_device})
@@ -88,17 +136,25 @@ def build_services(cfg: AssistantConfig) -> tuple[Services, TracedDocs]:
         turn_timeout_s=cfg.turn_timeout_s,
         choose_channel=lambda question, intent: channel_for(intent, cfg.fast_intents),
     )
-    if cfg.use_cluster:
-        from research_agent.tidb import cluster
-        from research_agent.tidb.db import admin_database, readonly_database
-        from research_agent.tidb.readonly import ReadOnlyTools
-        from research_agent.tidb.write import WriteExecutor, WriteTools
+    attach_tools(services, cfg)
+    if services.reader is not None:
+        from research_agent.tidb.db import admin_database
+        from research_agent.tidb.write import WriteExecutor
 
-        if cluster.port_open(cfg.tidb.host, cfg.tidb.port):
-            reader = ReadOnlyTools(readonly_database(cfg.tidb), cfg.tidb.max_rows)
-            services.reader = reader
-            services.writes = WriteTools(reader)
-            services.executor = WriteExecutor(admin_database(cfg.tidb), reader, cfg.audit_file)
+        # Confirmed writes always run here, never behind a tool (D37).
+        services.executor = WriteExecutor(admin_database(cfg.tidb), services.reader, cfg.audit_file)
+    backend: ToolBackend
+    if cfg.tool_source == "mcp":
+        from research_agent.toolkit.mcp_client import McpTools
+
+        backend = McpTools(mcp_command(cfg))
+    else:
+        backend = InProcessTools(services)
+    services.tools = ToolHarness(
+        backend,
+        audit_file=cfg.tool_audit_file,
+        budget=TurnBudget(cfg.max_tool_calls, cfg.max_doc_searches),
+    )
     return services, docs
 
 
