@@ -21,6 +21,7 @@ from arag.tools.read_chunk import ReadChunkTool
 from arag.tools.registry import ToolRegistry
 from arag.tools.semantic_search import SemanticSearchTool
 from research_agent.config import DataConfig, EmbeddingConfig, RunConfig
+from research_agent.ingest.sentences import snippet_splitter
 
 # Both upstream search tools start each hit with "Chunk ID: <id>" followed by a fixed marker.
 _CHUNK_ID_LINE = re.compile(
@@ -180,6 +181,9 @@ def build_tool_registry(cfg: RunConfig) -> ToolRegistry:
     if "keyword_search" in agent.tools:
         keyword = KeywordSearchTool(chunks_file=data.chunks_file)
         plain_text_tokens(keyword)
+        split = snippet_splitter(data.sentence_split)
+        if split is not None:
+            keyword._split_sentences = split  # type: ignore[method-assign, assignment]
         searches["keyword_search"] = keyword
     if "semantic_search" in agent.tools:
         searches["semantic_search"] = shared_semantic_tool(data, cfg.embedding)

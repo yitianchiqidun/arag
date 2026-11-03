@@ -155,3 +155,31 @@ def test_tools_count_special_token_text_as_plain_text(tmp_path: Path) -> None:
     assert "<|endoftext|>" in text and log["retrieved_tokens"] > 0
     result, log = registry.execute("keyword_search", AgentContext(), keywords=["endoftext"])
     assert result.startswith("Chunk ID: 0") and log["retrieved_tokens"] > 0
+
+
+def test_multilingual_keyword_snippets(tmp_path: Path) -> None:
+    chunks = tmp_path / "chunks.json"
+    text = "内存超过阈值时，会触发 OOM 行为。从 v8.5.0 开始默认开启。其他说明。"
+    chunks.write_text(json.dumps([{"id": "0", "text": text}], ensure_ascii=False))
+
+    def snippet(split: str) -> str:
+        cfg = RunConfig.model_validate(
+            {
+                "llm": {"model": "m"},
+                "judge": {"model": "m"},
+                "data": {
+                    "chunks_file": str(chunks),
+                    "index_dir": str(tmp_path),
+                    "sentence_split": split,
+                },
+                "agent": {"tools": ["keyword_search", "read_chunk"]},
+            }
+        )
+        result, _ = build_tool_registry(cfg).execute(
+            "keyword_search", AgentContext(), keywords=["v8.5"]
+        )
+        return result
+
+    # Upstream splits "v8.5.0" at its dots, so no sentence contains the keyword any more.
+    assert snippet("upstream").endswith("(no exact sentence match)")
+    assert snippet("multilingual").endswith("... 从 v8.5.0 开始默认开启 ...")

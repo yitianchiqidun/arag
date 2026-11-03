@@ -89,6 +89,9 @@ class DataConfig(BaseModel):
 
     chunks_file: str
     index_dir: str
+    # How keyword_search cuts snippets into sentences; "multilingual" for Chinese corpora
+    # (research_agent/ingest/sentences.py). The sentence index is split when it is built.
+    sentence_split: Literal["upstream", "multilingual"] = "upstream"
 
 
 class RunConfig(BaseModel):

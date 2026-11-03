@@ -16,6 +16,7 @@ from research_agent.ingest.index import (
     build_index,
 )
 from research_agent.ingest.loaders import Document, LoaderConfig, LoadReport, load_corpus
+from research_agent.ingest.sentences import SentenceSplit
 from research_agent.ingest.sources import CorpusSource, DirectorySource, GitSource
 
 
@@ -33,6 +34,8 @@ class CorpusConfig(BaseModel):
     # Precision of the index vectors (queries keep the upstream default); see
     # SentenceTransformerEmbedder and design_decisions.md D24.
     embedding_dtype: EmbeddingDtype = "float32"
+    # How chunk texts are split into the sentences of the sentence index (sentences.py).
+    sentence_split: SentenceSplit = "upstream"
 
     @model_validator(mode="after")
     def _one_source(self) -> CorpusConfig:
@@ -77,4 +80,5 @@ class CorpusConfig(BaseModel):
             chunker=self.chunker,
             embedder=embedder,
             count_tokens=tiktoken_counter(self.chunker.tokenizer),
+            sentence_split=self.sentence_split,
         )

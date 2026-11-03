@@ -5,7 +5,8 @@ A build directory holds:
 - ``chunks.json``: the chunks as a list of dicts (``id``, ``text`` plus our metadata); the
   upstream tools accept this shape as is and ignore the extra keys.
 - ``index/sentence_index.pkl``: the same dict ``scripts/build_index.py`` writes (sentence-level
-  embeddings for ``semantic_search``), with sentences split by the upstream function.
+  embeddings for ``semantic_search``), with sentences split by the upstream function or the
+  multilingual one (sentences.py).
 - ``index/chunk_index.npz`` + ``.meta.json``: the chunk-level cache of the Naive RAG baseline.
 - ``manifest.json``: per document the hash of its normalized text, written last.
 
@@ -35,14 +36,13 @@ from pydantic import BaseModel, Field
 from research_agent.baselines.naive_rag import ChunkIndex, ChunkIndexMeta
 from research_agent.ingest.chunker import Chunk, ChunkerConfig, TokenCounter, chunk_document
 from research_agent.ingest.loaders import Document, LoaderConfig
-from research_agent.upstream import load_script
+from research_agent.ingest.sentences import SPLITTER_IDS, SentenceSplit, index_splitter
 
 CHUNKS_FILE = "chunks.json"
 INDEX_DIR = "index"
 SENTENCE_INDEX = "sentence_index.pkl"
 MANIFEST_FILE = "manifest.json"
 REPORT_FILE = "build_report.json"
-SENTENCE_SPLIT = "scripts/build_index.py:split_sentences"
 
 
 EmbeddingDtype = Literal["float32", "model_default"]
@@ -106,7 +106,7 @@ class Manifest(BaseModel):
     chunker: ChunkerConfig
     embedding_model: str
     embedding_dtype: str
-    sentence_split: str = SENTENCE_SPLIT
+    sentence_split: str = SPLITTER_IDS["upstream"]
     chunks_sha256: str
     built_at: str
     docs: dict[str, DocEntry]
@@ -171,7 +171,7 @@ def _record(chunk_id: str, chunk: Chunk) -> dict[str, Any]:
 class _Previous:
     """What a previous build in the output directory offers for reuse."""
 
-    def __init__(self, out: Path, notes: list[str]) -> None:
+    def __init__(self, out: Path, notes: list[str], sentence_split: str) -> None:
         self.manifest: Manifest | None = None
         self.chunks_by_doc: dict[str, list[Chunk]] = {}
         self.sentence_vectors: dict[str, np.ndarray] = {}
@@ -194,7 +194,7 @@ class _Previous:
             self.chunks_by_doc.setdefault(chunk.doc, []).append(chunk)
 
         sentence_file = out / INDEX_DIR / SENTENCE_INDEX
-        if manifest.sentence_split != SENTENCE_SPLIT:
+        if manifest.sentence_split != sentence_split:
             notes.append("sentence split changed: sentence vectors not reused")
         elif sentence_file.exists():
             with open(sentence_file, "rb") as f:
@@ -233,6 +233,7 @@ def build_index(
     chunker: ChunkerConfig,
     embedder: Embedder,
     count_tokens: TokenCounter,
+    sentence_split: SentenceSplit = "upstream",
 ) -> BuildReport:
     """Build (or update in place) the index of ``docs`` in ``out_dir``."""
     start = time.perf_counter()
@@ -243,7 +244,7 @@ def build_index(
         raise ValueError("duplicate document paths")
     out = Path(out_dir)
     notes: list[str] = []
-    prev = _Previous(out, notes)
+    prev = _Previous(out, notes, SPLITTER_IDS[sentence_split])
     pm = prev.manifest
     if pm is not None and (pm.embedding_model, pm.embedding_dtype) != (
         embedder.model_name,
@@ -285,7 +286,7 @@ def build_index(
             records.append(_record(str(len(records)), chunk))
         entries[doc.path] = DocEntry(sha256=doc.sha256, title=doc.title, chunks=len(chunks))
 
-    split = load_script("build_index").split_sentences
+    split = index_splitter(sentence_split)
     sentences: list[str] = []
     sentence_to_chunk: list[str] = []
     for r in records:
@@ -342,6 +343,7 @@ def build_index(
         chunker=chunker,
         embedding_model=embedder.model_name,
         embedding_dtype=embedder.dtype,
+        sentence_split=SPLITTER_IDS[sentence_split],
         chunks_sha256=chunks_sha,
         built_at=datetime.now().isoformat(timespec="seconds"),
         docs=entries,

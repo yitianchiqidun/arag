@@ -20,6 +20,7 @@ from research_agent.ingest.index import (
     doc_changes,
 )
 from research_agent.ingest.loaders import Document, LoaderConfig
+from research_agent.ingest.sentences import SPLITTER_IDS, SentenceSplit, split_multilingual
 from research_agent.upstream import load_script
 
 
@@ -73,7 +74,11 @@ CHUNKER = ChunkerConfig(max_tokens=50)
 
 
 def build(
-    docs: list[Document], out: Path, embedder: FakeEmbedder, chunker: ChunkerConfig = CHUNKER
+    docs: list[Document],
+    out: Path,
+    embedder: FakeEmbedder,
+    chunker: ChunkerConfig = CHUNKER,
+    sentence_split: SentenceSplit = "upstream",
 ):
     return build_index(
         docs,
@@ -84,6 +89,7 @@ def build(
         chunker=chunker,
         embedder=embedder,
         count_tokens=words,
+        sentence_split=sentence_split,
     )
 
 
@@ -162,6 +168,19 @@ def test_config_changes_limit_reuse(tmp_path: Path) -> None:
     assert report.chunks_rechunked == 3 and report.chunks_reused == 0
     assert report.sentence_vectors_embedded == 0  # same sentences, only the header lines differ
     assert report.chunk_vectors_embedded == 3
+
+
+def test_sentence_splitter_is_recorded_and_checked(tmp_path: Path) -> None:
+    out = tmp_path / "build"
+    build(V1, out, FakeEmbedder())
+    report = build(V1, out, FakeEmbedder(), sentence_split="multilingual")
+    assert any("sentence split changed" in n for n in report.notes)
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["sentence_split"] == SPLITTER_IDS["multilingual"]
+    with open(out / "index/sentence_index.pkl", "rb") as f:
+        index = pickle.load(f)
+    records = json.loads((out / "chunks.json").read_text())
+    assert index["sentences"] == [s for r in records for s in split_multilingual(r["text"])]
 
 
 def test_interrupted_build_falls_back_to_full(tmp_path: Path) -> None:
