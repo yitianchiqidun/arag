@@ -82,6 +82,7 @@ class AssistantState(TypedDict, total=False):
     pending_write: dict[str, Any] | None
     writes: list[dict[str, Any]]  # WriteResult of this turn
     evidence: int  # cluster tool results and cited chunks behind the answer
+    cluster_down: bool  # a cluster tool found no cluster
     citations: list[dict[str, Any]]
     answer: str
     cost: float
@@ -281,6 +282,7 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
             {"role": "user", "content": state["standalone"]},
         ]
         evidence = state.get("evidence", 0)
+        cluster_down = state.get("cluster_down", False)
         citations = list(state.get("citations") or [])
         cost = state.get("cost", 0.0)
         llm = services.llm("agent")
@@ -299,6 +301,7 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
                     "diag_messages": messages,
                     "answer": _text(reply),
                     "evidence": evidence,
+                    "cluster_down": cluster_down,
                     "citations": citations,
                     "cost": cost,
                     "pending_write": None,
@@ -331,6 +334,7 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
                     result = doc.answer + ("\n\n引用：" + "；".join(labels) if labels else "")
                 elif services.reader is None:
                     result = "集群不可用：本地 TiDB 集群没有启动或无法连接。"
+                    cluster_down = True
                 else:
                     try:
                         result = _read_tool(services.reader, name, args)
@@ -388,7 +392,9 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
 
     def check(state: AssistantState) -> dict[str, Any]:
         answer = state.get("answer") or ""
-        if state.get("evidence", 0) == 0:
+        if state.get("evidence", 0) == 0 and state.get("cluster_down"):
+            answer = prompts.NO_CLUSTER
+        elif state.get("evidence", 0) == 0:
             answer = prompts.ANSWER_PREFIX_NO_EVIDENCE + (
                 "\n\n（检索得到的回答没有引用任何文档段落，因此不予采用。）" if answer else ""
             )
@@ -489,6 +495,7 @@ class Assistant:
             "channel": "",
             "doc": None,
             "diag_messages": [],
+            "cluster_down": False,
             "pending_write": None,
             "writes": [],
             "evidence": 0,

@@ -223,3 +223,16 @@ def test_app_persists_sessions_and_traces(tmp_path: Path) -> None:
 
 def _services(bot: Assistant) -> Services:
     return bot.services
+
+
+def test_diagnosis_without_cluster_says_so() -> None:
+    def agent_script(messages: list[dict[str, Any]], tools: Any) -> dict[str, Any]:
+        if not [m for m in messages if m["role"] == "tool"]:
+            return {"content": "", "tool_calls": [tool_call("slow_queries", {}, "c1")]}
+        return {"content": "可能是缺少索引。"}
+
+    bot, _ = assistant("diagnosis", agent=FakeChat(agent_script))
+    bot.services.reader = None
+    out = events(bot.ask("s1", "查询变慢了"))
+    answer = next(e for e in out if e["type"] == "answer")
+    assert answer["text"] == prompts.NO_CLUSTER
