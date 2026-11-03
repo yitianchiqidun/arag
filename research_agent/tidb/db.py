@@ -43,12 +43,27 @@ class QueryResult(BaseModel):
     truncated: bool = False  # more rows than the limit
     elapsed_ms: float = 0.0
 
-    def as_text(self, max_cell: int = 200) -> str:
-        """A compact table for the model: header, then one tab-separated line per row."""
-        lines = ["\t".join(self.columns)]
-        for row in self.rows:
-            cells = ["NULL" if v is None else str(v) for v in row]
-            lines.append("\t".join(c if len(c) <= max_cell else c[:max_cell] + "…" for c in cells))
+    def as_text(self, max_cell: int = 200, wide: int = 8) -> str:
+        """A compact table for the model: header, then one tab-separated line per row; with more
+        than ``wide`` columns, one ``column=value`` list per row instead.
+
+        Empty strings are written as ``''``: with tabs alone, several empty columns in a row
+        (e.g. ``SHOW INDEX``, 17 columns) made the model read values from the wrong column.
+        """
+
+        def cell(v: Any) -> str:
+            text = "NULL" if v is None else (str(v) or "''")
+            return text if len(text) <= max_cell else text[:max_cell] + "…"
+
+        if len(self.columns) > wide:
+            lines = [
+                f"第 {i} 行："
+                + "，".join(f"{c}={cell(v)}" for c, v in zip(self.columns, row, strict=False))
+                for i, row in enumerate(self.rows, 1)
+            ] or ["（没有数据）"]
+        else:
+            lines = ["\t".join(self.columns)]
+            lines += ["\t".join(cell(v) for v in row) for row in self.rows]
         if self.truncated:
             lines.append(f"(只显示前 {len(self.rows)} 行)")
         return "\n".join(lines)

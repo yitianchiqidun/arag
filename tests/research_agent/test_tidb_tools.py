@@ -128,6 +128,29 @@ def test_query_result_as_text() -> None:
     assert result.as_text(max_cell=4) == "a\tb\n1\tNULL\nxxxx…\t2\n(只显示前 2 行)"
 
 
+def test_wide_results_name_every_value() -> None:
+    columns = [
+        "Table",
+        "Key_name",
+        "Null",
+        "Comment",
+        "Index_comment",
+        "Visible",
+        "Expression",
+        "Clustered",
+        "Global",
+    ]
+    result = QueryResult(
+        columns=columns, rows=[["orders", "idx_user", "", "", "", "YES", None, "NO", "NO"]]
+    )
+    assert result.as_text() == (
+        "第 1 行：Table=orders，Key_name=idx_user，Null=''，Comment=''，Index_comment=''，"
+        "Visible=YES，Expression=NULL，Clustered=NO，Global=NO"
+    )
+    assert QueryResult(columns=columns, rows=[]).as_text() == "（没有数据）"
+    assert QueryResult(columns=["a", "b"], rows=[["", 1]]).as_text() == "a\tb\n''\t1"
+
+
 VARIABLES = QueryResult(
     columns=["Variable_name", "Value"], rows=[["tidb_mem_quota_query", "1073741824"]]
 )
