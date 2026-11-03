@@ -197,11 +197,43 @@ def to_markdown(rows: list[ComparedRun], reference: str) -> str:
         ]
         lines.append("| " + " | ".join(cells) + " |")
 
+    if any(r.summary.citations for r in rows):
+        lines += ["", *citation_table(rows)]
+
     lines += ["", "Settings that differ between rows (everything else is identical):", ""]
     for r in rows:
         diff = ", ".join(f"`{k}={json.dumps(v)}`" for k, v in r.differences.items()) or "—"
         lines.append(f"- **{r.name}** (`{r.run_dir}`, commit `{r.commit}`): {diff}")
     return "\n".join(lines)
+
+
+def citation_table(rows: list[ComparedRun]) -> list[str]:
+    """Answer citations (D25): how often answers cite chunks and what the agent saw of them."""
+    head = [
+        "Variant",
+        "Answers citing a chunk",
+        "Citations read in full",
+        "Citations seen only as a snippet",
+        "Citations never shown",
+        "Answers citing a gold evidence chunk",
+    ]
+    lines = ["| " + " | ".join(head) + " |", "|" + " --- |" * len(head)]
+    for r in rows:
+        c = r.summary.citations
+        if c is None:
+            cells = [r.name] + ["—"] * (len(head) - 1)
+        else:
+            evidence = f"{_pct(c.evidence_cited)} (n={c.evidence_n})" if c.evidence_n else "—"
+            cells = [
+                r.name,
+                _pct(c.answers_citing),
+                _pct(c.cited_read),
+                _pct(c.cited_snippet),
+                str(c.cited_unseen),
+                evidence,
+            ]
+        lines.append("| " + " | ".join(cells) + " |")
+    return lines
 
 
 def to_csv(rows: list[ComparedRun]) -> str:

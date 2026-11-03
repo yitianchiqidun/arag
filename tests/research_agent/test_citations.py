@@ -89,5 +89,5 @@ def test_record_citations_and_stats() -> None:
     assert [c.status for c in record_citations(records[0], refs)] == ["read", "unseen"]
     stats = citation_stats(records, refs)
     assert stats.answers_citing == 2 / 3 and stats.cited == 3
-    assert stats.cited_read == 1 / 3 and stats.cited_unseen == 2
+    assert stats.cited_read == 1 / 3 and stats.cited_unseen == 2 and stats.cited_snippet == 0
     assert (stats.evidence_n, stats.evidence_cited) == (2, 0.5)

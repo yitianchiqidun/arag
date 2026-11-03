@@ -18,6 +18,15 @@ Agent model `qwen3.7-plus-2026-05-26`, judge `qwen-plus-2025-12-01`, n = 100. LL
 | wo_semantic | 8.75 | 7.97 (6.14 / 0.00 / 1.83) | 4.9% | 0.5% | 22.0% | 68,388 | 72.8% | 8,226 | 30.3 / 80.6 | 6.65 |
 | wo_read | 6.68 | 5.71 (4.19 / 1.52 / 0.00) | 31.3% | 0.2% | 3.0% | 136,312 | 68.2% | 25,668 | 33.8 / 84.7 | 13.13 |
 
+| Variant | Answers citing a chunk | Citations read in full | Citations seen only as a snippet | Citations never shown | Answers citing a gold evidence chunk |
+| --- | --- | --- | --- | --- | --- |
+| naive_rag | 35.0% | 100.0% | 0.0% | 0 | — |
+| arag_full | 97.0% | 83.8% | 16.2% | 0 | — |
+| arag_full_stage0 | 97.0% | 80.5% | 18.6% | 2 | — |
+| wo_keyword | 99.0% | 87.4% | 12.6% | 0 | — |
+| wo_semantic | 97.0% | 77.9% | 22.1% | 0 | — |
+| wo_read | 92.0% | 100.0% | 0.0% | 0 | — |
+
 Settings that differ between rows (everything else is identical):
 
 - **naive_rag** (`results/stage1/musique100/naive_rag`, commit `77b9fd3`): `agent.search_result="snippet"`, `agent.tools=["keyword_search", "semantic_search", "read_chunk"]`, `method="naive_rag"`

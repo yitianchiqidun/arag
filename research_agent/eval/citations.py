@@ -128,18 +128,20 @@ class CitationStats(BaseModel):
     answers_citing: float  # share of answers citing at least one existing chunk
     cited: int  # citations of existing chunks
     cited_read: float | None  # share of those whose full text the agent had seen
+    cited_snippet: float | None  # share of those the agent only saw as a search snippet
     cited_unseen: int  # citations of existing chunks never shown to the agent
     evidence_n: int  # questions with gold evidence chunks
     evidence_cited: float | None  # share of those whose answer cites a gold evidence chunk
 
 
 def citation_stats(records: list[dict[str, Any]], refs: dict[str, ChunkRef]) -> CitationStats:
-    citing = cited = read = unseen = evidence_n = evidence_hit = 0
+    citing = cited = read = snippet = unseen = evidence_n = evidence_hit = 0
     for r in records:
         citations = [c for c in record_citations(r, refs) if c.status != "unknown"]
         citing += bool(citations)
         cited += len(citations)
         read += sum(c.status == "read" for c in citations)
+        snippet += sum(c.status == "snippet" for c in citations)
         unseen += sum(c.status == "unseen" for c in citations)
         evidence = r.get("evidence_chunks")
         if evidence:
@@ -149,6 +151,7 @@ def citation_stats(records: list[dict[str, Any]], refs: dict[str, ChunkRef]) -> 
         answers_citing=citing / len(records) if records else 0.0,
         cited=cited,
         cited_read=read / cited if cited else None,
+        cited_snippet=snippet / cited if cited else None,
         cited_unseen=unseen,
         evidence_n=evidence_n,
         evidence_cited=evidence_hit / evidence_n if evidence_n else None,
