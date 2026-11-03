@@ -27,31 +27,20 @@ import operator
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, Protocol, TypedDict
+from typing import Annotated, Any, Protocol, TypedDict
 
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
 from research_agent.assistant import prompts
-from research_agent.assistant.retrieval import Channel, DocAnswer
+from research_agent.assistant.retrieval import DocAnswer
+from research_agent.assistant.routing import Channel, ChatClient, classify, parse_json
 from research_agent.tidb.db import DatabaseError
 from research_agent.tidb.readonly import ReadOnlyTools, UnsafeSQL
 from research_agent.tidb.write import PendingWrite, WriteExecutor, WriteTools
 
-Intent = Literal["param_lookup", "research", "diagnosis", "out_of_scope"]
-INTENTS: tuple[Intent, ...] = ("param_lookup", "research", "diagnosis", "out_of_scope")
 EVIDENCE_STATUSES = ("read", "snippet")
-
-
-class ChatClient(Protocol):
-    def chat(
-        self,
-        messages: list[dict[str, Any]],
-        tools: list[dict[str, Any]] | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-    ) -> dict[str, Any]: ...
 
 
 class DocSource(Protocol):
@@ -98,15 +87,6 @@ def _text(reply: dict[str, Any]) -> str:
 
 def _cost(reply: dict[str, Any]) -> float:
     return float(reply.get("cost") or 0.0)
-
-
-def _json(text: str) -> dict[str, Any]:
-    start, end = text.find("{"), text.rfind("}")
-    try:
-        data = json.loads(text[start : end + 1]) if start >= 0 else {}
-    except json.JSONDecodeError:
-        data = {}
-    return data if isinstance(data, dict) else {}
 
 
 # --- diagnosis tools ------------------------------------------------------------------------
@@ -246,13 +226,9 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
 
     def route(state: AssistantState) -> dict[str, Any]:
         question = state["standalone"]
-        reply = services.llm("router").chat(
-            [{"role": "user", "content": prompts.ROUTE.format(question=question)}], temperature=0.0
-        )
-        data = _json(_text(reply))
-        intent = data.get("intent") if data.get("intent") in INTENTS else "research"
-        _emit("route", intent=intent, reason=str(data.get("reason") or ""), question=question)
-        return {"intent": intent, "cost": state.get("cost", 0.0) + _cost(reply)}
+        found = classify(services.llm("router"), question)
+        _emit("route", intent=found.intent, reason=found.reason, question=question)
+        return {"intent": found.intent, "cost": state.get("cost", 0.0) + found.cost}
 
     def retrieve(state: AssistantState) -> dict[str, Any]:
         question = state["standalone"]
@@ -309,7 +285,7 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
             pending: PendingWrite | None = None
             for call in calls:
                 name = call["function"]["name"]
-                args = _json(call["function"].get("arguments") or "{}")
+                args = parse_json(call["function"].get("arguments") or "{}")
                 _emit("tool_call", tool=name, args=args)
                 if name.startswith("propose_") and pending is None:
                     try:

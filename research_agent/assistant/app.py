@@ -19,8 +19,9 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ConfigDict
 
-from research_agent.assistant.graph import Assistant, ChatClient, Services
-from research_agent.assistant.retrieval import Channel, DocAnswer, DocRetriever
+from research_agent.assistant.graph import Assistant, Services
+from research_agent.assistant.retrieval import DocAnswer, DocRetriever
+from research_agent.assistant.routing import Channel, ChatClient, channel_for
 from research_agent.config import LLMConfig, RunConfig
 from research_agent.llm.client import client_from_config
 from research_agent.llm.pricing import PricingTable
@@ -33,6 +34,9 @@ class AssistantConfig(BaseModel):
     run_config: str = "configs/tidb_docs_qwen37_plus.yaml"  # A-RAG / Naive RAG over the docs
     router: LLMConfig  # condense + intent (small, fast)
     agent: LLMConfig  # diagnosis loop
+    # Intents answered by the fast channel (Naive RAG, asked to cite); the rest use A-RAG.
+    # Empty: everything goes to A-RAG (stage 6). Stage 7 decides the default (D32).
+    fast_intents: list[str] = []
     tidb: TiDBConfig = TiDBConfig()
     use_cluster: bool = True
     checkpoint_db: str = "data/assistant/sessions.sqlite"
@@ -68,7 +72,12 @@ def build_services(cfg: AssistantConfig) -> tuple[Services, TracedDocs]:
         return client_from_config(clients[role], pricing)
 
     docs = TracedDocs(DocRetriever(run))
-    services = Services(llm=llm, docs=docs, max_steps=cfg.max_steps)
+    services = Services(
+        llm=llm,
+        docs=docs,
+        max_steps=cfg.max_steps,
+        choose_channel=lambda question, intent: channel_for(intent, cfg.fast_intents),
+    )
     if cfg.use_cluster:
         from research_agent.tidb import cluster
         from research_agent.tidb.db import admin_database, readonly_database

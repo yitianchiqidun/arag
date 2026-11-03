@@ -10,12 +10,13 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 from research_agent.agent.prompt import build_system_prompt, load_upstream_prompt
 from research_agent.agent.tools import build_tool_registry, plain_text_tokens, shared_semantic_tool
+from research_agent.assistant.routing import Channel
 from research_agent.baselines.naive_rag import ChunkIndex, NaiveRAG
 from research_agent.config import RunConfig
 from research_agent.eval.citations import load_chunk_refs, record_citations
@@ -23,8 +24,6 @@ from research_agent.eval.runner import RecordingAgent
 from research_agent.llm.client import client_from_config
 from research_agent.llm.pricing import PricingTable
 from research_agent.tracing.recorder import TimedToolRegistry, TraceRecorder
-
-Channel = Literal["arag", "naive_rag"]
 
 
 class DocCitation(BaseModel):
