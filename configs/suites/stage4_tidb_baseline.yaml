@@ -1,0 +1,19 @@
+# Stage 4 baseline: Naive RAG (asked to cite, D29) vs A-RAG (Full) on the TiDB evalset
+# (evalsets/tidb/questions.json, D30), grouped by question type. Cost limit 10 CNY.
+#
+#   python -m research_agent.eval suite configs/suites/stage4_tidb_baseline.yaml --max-cost 10
+name: stage4_tidb_baseline
+description: fast channel (Naive RAG) vs slow channel (A-RAG) on TiDB parameters and release notes
+base_config: configs/tidb_docs_qwen37_plus.yaml
+questions: evalsets/tidb/questions.json
+output_root: results/stage4/tidb_baseline
+reference: arag_full
+
+variants:
+  - name: naive_rag
+    description: top-5 chunks by dense retrieval, one LLM call, asked to cite chunk ids
+    overrides: {method: naive_rag, naive_rag: {cite_chunks: true}}
+
+  - name: arag_full
+    description: A-RAG with keyword_search, semantic_search and read_chunk
+    overrides: {}

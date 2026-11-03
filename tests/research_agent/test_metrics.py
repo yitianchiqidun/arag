@@ -44,6 +44,7 @@ def test_hop_group() -> None:
     assert hop_group("3hop1__9285_5188_23307") == "3hop"
     assert hop_group("4hop3__x") == "4hop"
     assert hop_group("q1") is None
+    assert hop_group("tidb_params__direct__d001") == "direct"  # built evalsets: question type
     assert hop_group("shop__1") is None
 
 

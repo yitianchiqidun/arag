@@ -188,7 +188,7 @@ def to_markdown(s: RunSummary) -> str:
             "Cont-Acc (upstream def / over all questions)",
             f"{s.cont_acc:.1%} / {s.cont_acc_all:.1%}",
         ),
-        ("LLM-Acc by hop count (over all questions)", hops or "—"),
+        ("LLM-Acc by hop count / question type", hops or "—"),
         ("Avg loops / LLM calls", f"{s.avg_loops:.2f} / {s.avg_llm_calls:.2f}"),
         ("Avg tool calls (by tool)", f"{s.avg_tool_calls:.2f} ({tools})"),
         (

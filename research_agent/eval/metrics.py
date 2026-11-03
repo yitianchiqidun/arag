@@ -11,6 +11,9 @@ from pydantic import BaseModel
 
 SEARCH_TOOLS = frozenset({"keyword_search", "semantic_search"})
 _HOP = re.compile(r"(?:^|_)(\d+)hop\d*__")
+_EVALSET_ID = re.compile(
+    r"^[A-Za-z0-9_.-]+?__([A-Za-z][A-Za-z0-9-]*)__[^_]+$"
+)  # dataset.question_record
 
 
 class RepeatCounts(BaseModel):
@@ -54,9 +57,14 @@ def repeat_counts(trajectory: list[dict[str, Any]]) -> RepeatCounts:
 
 
 def hop_group(qid: str) -> str | None:
-    """Hop count from MuSiQue ids (``musique_2hop__…``, ``3hop1__…``); other ids give None."""
+    """The group a question is reported in: the hop count of MuSiQue ids
+    (``musique_2hop__…``, ``3hop1__…``), or the question type of built evalsets
+    (``tidb_params__direct__d001`` -> ``direct``); other ids give None."""
     match = _HOP.search(qid)
-    return f"{match.group(1)}hop" if match else None
+    if match:
+        return f"{match.group(1)}hop"
+    built = _EVALSET_ID.match(qid)
+    return built.group(1) if built else None
 
 
 def mcnemar_exact_p(b: int, c: int) -> float:
