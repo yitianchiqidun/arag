@@ -155,13 +155,19 @@ class ReadOnlyTools:
         return self.db.query(prefix + statement, max_rows=self.max_rows)
 
     def lock_waits(self) -> QueryResult:
-        """Pessimistic lock waits now: the waiting and the holding transaction and their SQL."""
+        """Pessimistic lock waits now: the waiting and the holding transaction, their sessions,
+        and every statement the holder ran so far (an idle holder has no current SQL; the
+        statements come from its digests, which needs PROCESS). One row per waiter: TiKV may
+        report the same wait more than once."""
         sql = (
-            "SELECT w.KEY, w.TRX_ID AS waiting_trx, w.SQL_DIGEST_TEXT AS waiting_sql, "
+            "SELECT DISTINCT w.KEY, w.TRX_ID AS waiting_trx, wt.SESSION_ID AS waiting_session, "
+            "COALESCE(w.SQL_DIGEST_TEXT, wt.CURRENT_SQL_DIGEST_TEXT) AS waiting_sql, "
             "w.CURRENT_HOLDING_TRX_ID AS holding_trx, h.SESSION_ID AS holding_session, "
             "h.START_TIME AS holding_since, h.STATE AS holding_state, h.USER AS holding_user, "
-            "h.CURRENT_SQL_DIGEST_TEXT AS holding_current_sql "
+            "h.CURRENT_SQL_DIGEST_TEXT AS holding_current_sql, "
+            "TIDB_DECODE_SQL_DIGESTS(h.ALL_SQL_DIGESTS, 200) AS holding_trx_statements "
             "FROM information_schema.data_lock_waits w "
+            "LEFT JOIN information_schema.cluster_tidb_trx wt ON w.TRX_ID = wt.ID "
             "LEFT JOIN information_schema.cluster_tidb_trx h ON w.CURRENT_HOLDING_TRX_ID = h.ID"
         )
         return self.db.query(sql, max_rows=self.max_rows)
