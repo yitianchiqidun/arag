@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      # CPU torch: the tests use fake models, never the GPU.
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -e ".[dev,full,research,agent,tidb,service,viewer]"
+      # The project's own code; the upstream A-RAG code keeps its original style.
+      - run: ruff check research_agent tests/research_agent apps
+      - run: ruff format --check research_agent tests/research_agent apps
+      - run: mypy research_agent
+      - run: pytest -q tests

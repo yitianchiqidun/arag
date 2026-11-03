@@ -1,0 +1,11 @@
+# Never in the image: local data and results (mounted at run time), secrets, the plan.
+.git
+.venv
+data
+results
+logs
+.env
+PLAN.md
+PLAN_*.md
+**/__pycache__
+*.pyc
