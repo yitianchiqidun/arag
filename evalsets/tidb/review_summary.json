@@ -1,0 +1,110 @@
+{
+ "prereview_model": "qwen-plus-2025-12-01",
+ "human": false,
+ "spot_check_seed": 2026,
+ "rules": [
+  {
+   "groups": [
+    "direct",
+    "version"
+   ],
+   "prereview": false,
+   "ready": 88,
+   "prereview_prompt_versions": {},
+   "prereview_decisions": {},
+   "prereview_reasons": {},
+   "scope": {},
+   "spot_check_n": 0,
+   "spot_check_first": {},
+   "agreement_spot_check": null,
+   "agreement_all_human": null,
+   "changed_after_first": {},
+   "kept": 88,
+   "kept_by_source": {
+    "auto": 88
+   },
+   "kept_modified": 0,
+   "dropped": 0,
+   "drop_reasons": {}
+  },
+  {
+   "groups": [
+    "descriptive"
+   ],
+   "prereview": true,
+   "ready": 62,
+   "prereview_prompt_versions": {
+    "v1": 61
+   },
+   "prereview_decisions": {
+    "drop": 18,
+    "keep": 43
+   },
+   "prereview_reasons": {
+    "not_unique": 18,
+    "answer_not_in_evidence": 1
+   },
+   "scope": {},
+   "spot_check_n": 0,
+   "spot_check_first": {},
+   "agreement_spot_check": {
+    "n": 0,
+    "exact": null,
+    "usable": null,
+    "pairs": {}
+   },
+   "agreement_all_human": {
+    "n": 0,
+    "exact": null,
+    "usable": null,
+    "pairs": {}
+   },
+   "changed_after_first": {},
+   "kept": 43,
+   "kept_by_source": {
+    "prereview": 43
+   },
+   "kept_modified": 0,
+   "dropped": 19,
+   "drop_reasons": {
+    "not_unique": 18,
+    "answer_not_in_evidence": 1,
+    "other": 1
+   }
+  }
+ ],
+ "without_first_judgment": 0,
+ "kept": 131,
+ "kept_by_group": {
+  "descriptive": 43,
+  "direct": 50,
+  "version": 38
+ },
+ "rejected": 3,
+ "spares": {
+  "direct": 18,
+  "descriptive": 1
+ },
+ "memorized": 161,
+ "memorized_by_group": {
+  "descriptive": 58,
+  "direct": 103
+ },
+ "closed_book_rate": {
+  "direct": {
+   "checked": 171,
+   "closed_book": 95,
+   "partial_memory": 8
+  },
+  "descriptive": {
+   "checked": 121,
+   "closed_book": 52,
+   "partial_memory": 6
+  },
+  "version": {
+   "checked": 38,
+   "closed_book": 0,
+   "partial_memory": 0
+  }
+ }
+}

@@ -1,0 +1,3222 @@
+[
+ {
+  "id": "tidb_params__descriptive__s002",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，控制单个会话 Prepared Plan Cache 最大缓存计划数量的参数默认值是多少？",
+  "answer": "100",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "432"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`100`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s004",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 中用于设置全局自动密码过期策略的系统变量，其默认值是多少？",
+  "answer": "0",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "355"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`0`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s005",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于控制 GOGC Tuner 可调节 GOGC 最小值的参数默认值是多少？",
+  "answer": "100",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "398"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`100`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s006",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 中用于设置事务隔离级别以兼容 MySQL 的可重复读模式的系统变量，其默认值是多少？",
+  "answer": "REPEATABLE-READ",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "452"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`REPEATABLE-READ`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s008",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，控制非递归 CTE 是否可在 TiFlash MPP 执行的参数默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "413"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s012",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于优化悲观事务 READ-COMMITTED 隔离级别下时间戳获取、避免全局 timestamp 延迟的参数默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "433"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s014",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 中记录之前执行语句警告数量的只读系统变量，其默认值是多少？",
+  "answer": "0",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "455"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`0`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s018",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，控制 Runtime Filter 谓词类型的那个参数默认值是多少？",
+  "answer": "IN",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "436"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`IN`"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s020",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，控制 LDAP simple 身份验证是否使用 StartTLS 加密连接的参数默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "352"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s022",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于控制每个节点每秒打印慢查询日志数量上限，常与 tidb_slow_log_rules 配合使用的参数默认值是多少？",
+  "answer": "0",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "440"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`0`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s023",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 中用于设置是否校验 ASCII 字符合法性以提升性能的系统变量，其默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "439"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s024",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于控制是否开启 slow log 功能的那个参数的默认值是多少？",
+  "answer": "ON",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "389"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`ON`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s025",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于调整当前实例日志最大保留天数的参数默认值是多少？",
+  "answer": "0",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "403"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`0`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s026",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量用于设置服务器对外通告的默认身份验证方式，其默认值是多少？",
+  "answer": "mysql_native_password",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "354"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`mysql_native_password`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s027",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于配置 LDAP simple 身份验证时 LDAP Server 的 TCP/IP 端口号的默认值是多少？",
+  "answer": "389",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "352"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`389`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s030",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于在多表 JOIN 时将过滤条件纳入连接顺序优化候选范围以提升效果的参数默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "415"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s033",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于设置是否在日志里记录所有 SQL 语句的参数的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "397"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s034",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于控制 statement summary tables 持久化开关的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "441"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s036",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项中，关闭 gRPC 链接的超时时长默认是多少？",
+  "answer": "3s",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "497"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：3s"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s037",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项中，控制是否在 RocksDB MANIFEST 记录 WAL 信息并验证其完整性的参数默认值是什么？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "513"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`true`"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s040",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV配置项中，用于开启特定合并机制以提升读性能但会增加写放大的参数默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "518"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：false"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s041",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项中，用于设置归档 WAL 生存周期、超过该值时系统会删除相关 WAL 的参数默认值是多少？",
+  "answer": "0",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "511"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：0"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s042",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项中，触发 store 对 PD 心跳的时间间隔参数的默认值是多少？",
+  "answer": "10s",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "506"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：10s"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s044",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV配置项中，用于关闭Titan对Blob文件GC的开关默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "513"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：false"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s053",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项中，用于开启 opentracing 跟踪部分组件调用开销的参数默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "466"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：false"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s054",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项中，用于控制是否忽略优化器代价估算并强制使用 TiFlash MPP 模式执行查询的参数，其默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "465"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：false"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s060",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项中，用于存放临时数据路径的参数默认值是什么？",
+  "answer": "\"/tmp/tidb\"",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "456"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：\"/tmp/tidb\""
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s062",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项中，用于设置新建索引长度限制的配置项默认值是多少？",
+  "answer": "3072",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "458"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：3072"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s067",
+  "source": "tidb_docs_v8.5",
+  "question": "PD配置项中，用于控制是否使用Joint Consensus进行副本调度的参数默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "149"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：true"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s068",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置文件中，用于设置元信息数据库自动压缩间隔时间（periodic 模式）或版本数（revision 模式）的参数默认值是多少？",
+  "answer": "1h",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "146"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：1h"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s071",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于设置 coprocessor 协议 paging size 最小行数的参数默认值是多少？",
+  "answer": "128",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "409"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`128`"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s072",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 中控制会话连接属性最大总大小、影响慢日志记录的系统变量，其默认值是多少？",
+  "answer": "4096",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "359"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`4096`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s073",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 中哪个系统变量用于控制是否收集 Grafana 面板未使用的指标？它的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "439"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s074",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 中控制是否强制 inline CTE 的系统变量默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "414"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s075",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，控制优化器是否对含子查询的查询应用 SEMI_JOIN_REWRITE Hint 的参数默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "414"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s076",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于控制 INSERT、REPLACE 和 UPDATE 操作是否允许写入 _tidb_rowid 列的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "426"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s080",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 中哪个系统变量控制乐观事务下唯一索引重复检查是否推迟到提交时进行？其默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "369"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s086",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于指定客户端发出数据所用字符集的那个参数的默认值是什么？",
+  "answer": "utf8mb4",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "353"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`utf8mb4`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s087",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，控制 DDL 内嵌 Analyze 行为（如 ADD INDEX 自动收集统计信息）的参数默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "371"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s088",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于限制单个临时表最大大小且超出时报错的参数默认值是多少？",
+  "answer": "67108864",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "445"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`67108864`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s089",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 中用于为 SQL 函数 RAND() 的随机值生成器添加种子的系统变量，其默认值是多少？",
+  "answer": "0",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "359"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`0`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s091",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，哪个参数与 tidb_super_read_only 作用相似，且其默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "381"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s094",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于控制是否启用自动演进绑定功能的参数默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "393"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s095",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，限制自动演进功能里每个执行计划运行最长时间的那个参数的默认值是多少？",
+  "answer": "600",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "394"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`600`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s096",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于设定 MPP Hash Join 是否使用最小网络交换数据量策略的参数默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "432"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s099",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，控制是否允许通过 ALTER TABLE MODIFY 或 CHANGE 移除列 AUTO_INCREMENT 属性的参数默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "362"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s100",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，控制是否以后台操作自动更新表统计信息的参数默认值是多少？",
+  "answer": "ON",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "377"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`ON`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s101",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于控制 Statement Summary Tables 和 Dashboard 显示的 SQL 字符串长度的参数默认值是多少？",
+  "answer": "4096",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "442"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`4096`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s102",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于设置事务模式（支持乐观或悲观）的参数，其默认值是多少？",
+  "answer": "pessimistic",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "448"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`pessimistic`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s105",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，控制是否启用共享锁升级为排他锁功能的参数默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "389"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s106",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于控制 Prepared Plan Cache 触发内存保护机制阈值的参数默认值是多少？",
+  "answer": "0.1",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "432"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`0.1`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s107",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量中，用于控制是否启用 CHECK 约束的那个参数的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "378"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s108",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项中，用于控制是否开启流量控制机制（自动关闭 KvDB 和 RaftDB 部分 write stall）的参数默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "502"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：true"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s110",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV配置项中，控制PD client在疑似网络隔离时是否通过follower转发请求给leader的参数默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "504"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：false"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s113",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV配置项中，RaftDB保存的Info日志文件最大数量是多少？",
+  "answer": "10",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "519"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`10`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s116",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置文件中，指定日志输出级别（如 debug、info 等）的配置项默认值是多少？",
+  "answer": "\"info\"",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "460"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：\"info\""
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s119",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项中，用于启用安全增强模式 (SEM) 的参数默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "462"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`false`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__descriptive__s120",
+  "source": "tidb_docs_v8.5",
+  "question": "PD配置项中，用于控制同时进行leader调度任务个数的参数默认值是多少？",
+  "answer": "4",
+  "answer_aliases": [],
+  "question_type": "descriptive",
+  "evidence": "",
+  "evidence_chunks": [
+   "148"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：4"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d001",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `block_encryption_mode` 的默认值是多少？",
+  "answer": "aes-128-ecb",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "353"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`aes-128-ecb`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d002",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_enable_ddl` 的默认值是多少？",
+  "answer": "ON",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "379"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`ON`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d003",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_opt_use_invisible_indexes` 的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "426"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d005",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_enable_unsafe_substitute` 的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "393"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d009",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_enable_new_only_full_group_by_check` 的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "385"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d010",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_index_join_batch_size` 的默认值是多少？",
+  "answer": "25000",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "400"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`25000`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d011",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_gc_life_time` 的默认值是多少？",
+  "answer": "10m0s",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "396"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`10m0s`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d013",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_force_priority` 的默认值是多少？",
+  "answer": "NO_PRIORITY",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "395"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`NO_PRIORITY`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d015",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_ddl_error_count_limit` 的默认值是多少？",
+  "answer": "512",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "371"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`512`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d017",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_wait_split_region_timeout` 的作用域是什么？",
+  "answer": "SESSION",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "449"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 作用域：SESSION"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d019",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_enable_local_txn` 的作用域是什么？",
+  "answer": "GLOBAL",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "384"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 作用域：GLOBAL"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d020",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `auto_increment_increment` 的作用域是什么？",
+  "answer": "SESSION 和 GLOBAL",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "353"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 作用域：SESSION | GLOBAL"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d023",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_ttl_delete_rate_limit` 的取值范围是什么？",
+  "answer": "[0, 9223372036854775807]",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "447"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 范围：`[0, 9223372036854775807]`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d025",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `cte_max_recursion_depth` 的取值范围是什么？",
+  "answer": "[0, 4294967295]",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "354"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 范围：`[0, 4294967295]`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d029",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `raftstore.consistency-check-interval` 的默认值是多少？",
+  "answer": "0s",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "507"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：0s"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d030",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `server.grpc-concurrent-stream` 的默认值是多少？",
+  "answer": "1024",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "496"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：1024"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d031",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `storage.enable-async-apply-prewrite` 的默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "501"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`false`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d032",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `raftstore.region-compact-min-redundant-rows` 的默认值是多少？",
+  "answer": "50000",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "506"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`50000`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d033",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `server.enable-request-batch` 的默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "497"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`true`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d036",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `raft-engine.enable-log-recycle` 的默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "521"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`true`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d037",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `raftdb.create-if-missing` 的默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "518"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`true`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d038",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `log.slow-threshold` 的默认值是多少？",
+  "answer": "300",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "461"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：300"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d040",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `deprecate-integer-display-length` 的默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "459"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`true`。在 v8.5.0 之前，默认值为 `false`。"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d041",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `performance.tcp-no-delay` 的默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "464"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：true"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d042",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `repair-table-list` 的默认值是多少？",
+  "answer": "[]",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "458"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：[]"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d043",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `performance.enable-async-batch-get` 的默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "466"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`false`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d044",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `tikv-client.commit-timeout` 的默认值是多少？",
+  "answer": "41s",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "467"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：41s"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d045",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `initial-cluster-token` 的默认值是多少？",
+  "answer": "\"pd-cluster\"",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "145"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：\"pd-cluster\""
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d047",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `schedule.hot-region-schedule-limit` 的默认值是多少？",
+  "answer": "4",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "148"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：4"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d048",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `schedule.enable-heartbeat-concurrent-runner` 的默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "150"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：true"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d049",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `pd-server.flow-round-by-digit` 的默认值是多少？",
+  "answer": "3",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "147"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：3"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d050",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `peer-urls` 的默认值是多少？",
+  "answer": "\"http://127.0.0.1:2380\"",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "145"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认：`\"http://127.0.0.1:2380\"`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d051",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_enable_pipelined_window_function` 的默认值是多少？",
+  "answer": "ON",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "387"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`ON`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d055",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_enable_extended_stats` 的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "380"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d056",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_stmt_summary_history_size` 的默认值是多少？",
+  "answer": "24",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "442"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`24`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d057",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_opt_hash_join_cost_factor` 的默认值是多少？",
+  "answer": "1",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "426"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`1`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d058",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `validate_password.enable` 的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "453"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d059",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tiflash_fine_grained_shuffle_batch_size` 的默认值是多少？",
+  "answer": "8192",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "449"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`8192`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d060",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_opt_enable_non_eval_scalar_subquery` 的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "413"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d061",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `default_week_format` 的默认值是多少？",
+  "answer": "0",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "355"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`0`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d062",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `sql_require_primary_key` 的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "360"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d063",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_metric_query_step` 的默认值是多少？",
+  "answer": "60",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "409"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`60`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d065",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_enable_row_level_checksum` 的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "393"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d067",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `wait_timeout` 的默认值是多少？",
+  "answer": "28800",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "455"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`28800`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d069",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_opt_distinct_agg_push_down` 的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "412"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d071",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_read_staleness` 的默认值是多少？",
+  "answer": "0",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "434"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`0`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d072",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_enable_reuse_chunk` 的默认值是多少？",
+  "answer": "ON",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "389"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`ON`"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d073",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_opt_three_stage_distinct_agg` 的默认值是多少？",
+  "answer": "ON",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "426"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`ON`"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d074",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `txn_scope` 的默认值是多少？",
+  "answer": "global",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "453"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`global`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d075",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_opt_table_rowid_cost_factor` 的默认值是多少？",
+  "answer": "1",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "428"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`1`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d076",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_allow_mpp` 的默认值是多少？",
+  "answer": "ON",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "362"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`ON`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d077",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `character_set_server` 的默认值是多少？",
+  "answer": "utf8mb4",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "354"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`utf8mb4`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d079",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_read_consistency` 的作用域是什么？",
+  "answer": "SESSION",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "433"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 作用域：SESSION"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d080",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_enable_rate_limit_action` 的作用域是什么？",
+  "answer": "SESSION 和 GLOBAL",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "389"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 作用域：SESSION | GLOBAL"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d081",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_persist_analyze_options` 的作用域是什么？",
+  "answer": "GLOBAL",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "429"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 作用域：GLOBAL"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d086",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_analyze_version` 的作用域是什么？",
+  "answer": "SESSION 和 GLOBAL",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "363"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 作用域：SESSION | GLOBAL"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d095",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `raftstore.peer-stale-state-check-interval` 的默认值是多少？",
+  "answer": "5m",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "507"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：5m"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d096",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `raftstore.raft-heartbeat-ticks` 的默认值是多少？",
+  "answer": "2",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "504"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：2"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d100",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `raftstore.messages-per-tick` 的默认值是多少？",
+  "answer": "4096",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "507"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：4096"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d102",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `pessimistic-txn.in-memory` 的默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "526"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：true"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d104",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `raftstore.snap-gc-timeout` 的默认值是多少？",
+  "answer": "4h",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "507"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：4h"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d106",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `server.grpc-keepalive-time` 的默认值是多少？",
+  "answer": "10s",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "497"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：10s"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d107",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `gc.auto-compaction.redundant-rows-percent-threshold` 的默认值是多少？",
+  "answer": "20",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "523"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`20`"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d110",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `rocksdb.defaultcf.titan.discardable-ratio` 的默认值是多少？",
+  "answer": "0.5",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "518"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：0.5"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d111",
+  "source": "tidb_docs_v8.5",
+  "question": "TiKV 配置项 `raftdb.info-log-roll-time` 的默认值是多少？",
+  "answer": "\"0s\"",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "519"
+  ],
+  "evidence_docs": [
+   "tikv-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`\"0s\"`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d115",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `log.format` 的默认值是多少？",
+  "answer": "\"text\"",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "460"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：\"text\""
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d116",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `performance.server-memory-quota` 的默认值是多少？",
+  "answer": "0",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "463"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：0"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d117",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `instance.tidb_stmt_summary_enable_persistent` 的默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "471"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：false"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d118",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `performance.txn-total-size-limit` 的默认值是多少？",
+  "answer": "104857600",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "464"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：104857600"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d119",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `status.record-db-qps` 的默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "469"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：false"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d120",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `performance.max-procs` 的默认值是多少？",
+  "answer": "0",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "463"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：0"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d121",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `opentracing.opentracing.reporter.log-spans` 的默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "467"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：false"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d122",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `instance.tidb_enable_ddl` 的默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "470"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：true"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d123",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `instance.tidb_force_priority` 的默认值是多少？",
+  "answer": "NO_PRIORITY",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "470"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：NO_PRIORITY"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d125",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `instance.tidb_record_plan_in_slow_log` 的默认值是多少？",
+  "answer": "1",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "470"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：1"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d127",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `opentracing.rpc-metrics` 的默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "466"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：false"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d131",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `enable-enum-length-limit` 的默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "459"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：true"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d133",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `opentracing.opentracing.sampler.param` 的默认值是多少？",
+  "answer": "1.0",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "467"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：1.0"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d134",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `enable-global-kill` 的默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "459"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：true"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d137",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `enable-tcp4-only` 的默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "459"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：false"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d138",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `table-column-count-limit` 的默认值是多少？",
+  "answer": "1017",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "458"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：1017"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d139",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `tikv-client.grpc-connection-count` 的默认值是多少？",
+  "answer": "4",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "467"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：4"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d140",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 配置项 `split-table` 的默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "456"
+  ],
+  "evidence_docs": [
+   "tidb-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：true"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d142",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `schedule.patrol-region-worker-count` 的默认值是多少？",
+  "answer": "1",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "148"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认：1"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d147",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `replication.max-replicas` 的默认值是多少？",
+  "answer": "3",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "150"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：3"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d149",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `dashboard.disable-custom-prom-addr` 的默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "150"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`false`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d150",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `schedule.enable-heartbeat-breakdown-metrics` 的默认值是多少？",
+  "answer": "true",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "149"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：true"
+  ],
+  "closed_book": "partial_memory",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d151",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `log.level` 的默认值是多少？",
+  "answer": "\"info\"",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "147"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：\"info\""
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d152",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `schedule.merge-schedule-limit` 的默认值是多少？",
+  "answer": "8",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "149"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：8"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d153",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `tick-interval` 的默认值是多少？",
+  "answer": "500ms",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "146"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：500ms"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d154",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `pd-server.server-memory-limit` 的默认值是多少？",
+  "answer": "0",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "146"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`0`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d156",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `metric.interval` 的默认值是多少？",
+  "answer": "15s",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "147"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认：15s"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d159",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `force-new-cluster` 的默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "146"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：false"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d160",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `auto-compaction-mod` 的默认值是多少？",
+  "answer": "periodic",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "146"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：periodic"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d161",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `log.disable-timestamp` 的默认值是多少？",
+  "answer": "false",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "147"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：false"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d162",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `client-urls` 的默认值是多少？",
+  "answer": "\"http://127.0.0.1:2379\"",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "145"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`\"http://127.0.0.1:2379\"`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d163",
+  "source": "tidb_docs_v8.5",
+  "question": "PD 配置项 `pd-server.server-memory-limit-gc-trigger` 的默认值是多少？",
+  "answer": "0.7",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "146"
+  ],
+  "evidence_docs": [
+   "pd-configuration-file.md"
+  ],
+  "evidence_quotes": [
+   "+ 默认值：`0.7`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d166",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_enable_tmp_storage_on_oom` 的默认值是多少？",
+  "answer": "ON",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "392"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`ON`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d167",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_opt_projection_push_down` 的默认值是多少？",
+  "answer": "ON",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "423"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`ON`。在 v8.3.0 之前，默认值为 `OFF`。"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d169",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_enable_batch_dml` 的默认值是多少？",
+  "answer": "OFF",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "377"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`OFF`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d170",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_opt_network_factor` 的默认值是多少？",
+  "answer": "1.0",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "415"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`1.0`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d171",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_enable_auto_analyze_priority_queue` 的默认值是多少？",
+  "answer": "ON",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "377"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`ON`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ },
+ {
+  "id": "tidb_params__direct__d172",
+  "source": "tidb_docs_v8.5",
+  "question": "TiDB 系统变量 `tidb_opt_index_join_cost_factor` 的默认值是多少？",
+  "answer": "1",
+  "answer_aliases": [],
+  "question_type": "direct",
+  "evidence": "",
+  "evidence_chunks": [
+   "427"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "evidence_quotes": [
+   "- 默认值：`1`"
+  ],
+  "closed_book": "closed_book",
+  "review": null
+ }
+]

@@ -28,6 +28,11 @@ composition:
     tikv_config: 15
     tidb_config: 8
     pd_config: 7
+  descriptive_final:  # 50, in the proportions of the first draw, from pre-review keeps
+    system_variable: 25
+    tikv_config: 12
+    tidb_config: 7
+    pd_config: 6
   version:  # stratified by release version and component
     修改: 20
     新增: 12

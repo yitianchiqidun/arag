@@ -6,10 +6,10 @@
     "ref": "origin/release-8.5",
     "commit": "1b354399111e330414885ab90d8c773c15df9f7b"
   },
-  "built_at": "2026-11-03T12:48:34",
+  "built_at": "2026-11-03T13:11:03",
   "groups": {
-    "direct": 50,
-    "version": 38,
-    "descriptive": 70
+    "direct": 172,
+    "descriptive": 123,
+    "version": 38
   }
 }

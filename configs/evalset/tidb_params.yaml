@@ -3,7 +3,6 @@
 # research_agent/evalset/tidb_build.py (configs/evalset/tidb_params_build.yaml); then
 #   python -m research_agent.evalset closed-book configs/evalset/tidb_params.yaml
 #   python -m research_agent.evalset prereview configs/evalset/tidb_params.yaml
-#   QA_REVIEW_CONFIG=configs/evalset/tidb_params.yaml uv run streamlit run apps/qa_review.py
 #   python -m research_agent.evalset finalize configs/evalset/tidb_params.yaml
 name: tidb_params
 source: tidb_docs_v8.5
@@ -35,15 +34,14 @@ review:
     answer_leak: 问题泄露答案
     other: 其他
   rules:
-    - groups: [direct, version]  # answers extracted by rules: a spot check of the rules
-      spot_check_n: 20
-    - groups: [descriptive]  # LLM-rewritten questions: pre-review, then a human
+    - groups: [direct, version]  # answers extracted by rules and cross-checked: all kept
+    - groups: [descriptive]  # LLM-rewritten questions: kept or dropped by the pre-review
       prereview: true
-      spot_check_n: 10
   llm:
     model: qwen-plus-2025-12-01  # differs from the agent and from the rewriter
     temperature: 0.0
     max_tokens: 600
     enable_thinking: false
   spot_check_seed: 2026
+  human: false  # no human review (2026-11-03): rules and the pre-review decide (D30)
   summary_docs: [docs/design_decisions.md]  # D30
