@@ -106,6 +106,9 @@ class Composition(BaseModel):
     # Ready descriptive questions wanted after the closed-book filter (for ``supplement``);
     # more than the 50 needed, as the pre-review and the human review drop some.
     descriptive_ready: dict[str, int] = Field(default_factory=dict)
+    # Final descriptive questions per component (``select``), taken from those the pre-review
+    # keeps; empty keeps all of them.
+    descriptive_final: dict[str, int] = Field(default_factory=dict)
     version: dict[str, int]  # change type(s) joined by "/" -> count
 
 
@@ -557,6 +560,54 @@ def supplement(
     return new
 
 
+def select(cfg: BuildConfig) -> dict[str, int]:
+    """Leave out ready candidates beyond each cell's quota (in draw order) as spares.
+
+    Direct cells use the composition; descriptive cells use ``descriptive_final`` and count
+    only the candidates the pre-review keeps. Version questions are all kept. Spares get a
+    ``spare:`` reject reason (finalize counts them apart); a rerun starts from scratch.
+    Returns spares per group.
+    """
+    from research_agent.evalset.dataset import statuses
+    from research_agent.evalset.review import SPARE, auto_decision, load_prereviews
+
+    evalset = cfg.load_evalset()
+    candidates = [
+        c.model_copy(update={"reject_reason": None})
+        if (c.reject_reason or "").startswith(SPARE)
+        else c
+        for c in load_candidates(evalset)
+    ]
+    write_candidates(evalset, candidates)
+    status = statuses(evalset, candidates)
+    prereviews = load_prereviews(evalset)
+    drafts = {d.candidate_id: d for d in load_drafts(cfg)}
+    quotas = {"direct": cfg.composition.direct, "descriptive": cfg.composition.descriptive_final}
+    used: Counter[tuple[str, str]] = Counter()
+    spares: Counter[str] = Counter()
+    out = []
+
+    def order(c: Candidate) -> tuple[str, int]:
+        return c.candidate_id[0], int(c.candidate_id[1:])
+
+    for c in sorted(candidates, key=order):
+        quota = quotas.get(c.group)
+        if quota and status[c.candidate_id] == "ready":
+            counts = c.group != "descriptive" or (
+                auto_decision(c, prereviews.get(c.candidate_id)).decision == "keep"
+            )
+            cell = _cell(drafts[c.candidate_id])
+            if counts and used[(c.group, cell)] >= quota.get(cell, 0):
+                reason = f"{SPARE} {cell} already has {quota.get(cell, 0)}"
+                c = c.model_copy(update={"reject_reason": reason})
+                spares[c.group] += 1
+            elif counts:
+                used[(c.group, cell)] += 1
+        out.append(c)
+    write_candidates(evalset, out)
+    return dict(spares)
+
+
 class CallEstimate(BaseModel):
     step: str
     model: str
@@ -642,7 +693,7 @@ def estimate(cfg: BuildConfig, count_tokens: Any, overhead: float = 1.15) -> lis
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m research_agent.evalset.tidb_build")
     parser.add_argument("config")
-    parser.add_argument("step", choices=["draft", "estimate", "rewrite", "supplement"])
+    parser.add_argument("step", choices=["draft", "estimate", "rewrite", "supplement", "select"])
     parser.add_argument("--workers", type=int, default=5)
     args = parser.parse_args()
     cfg = BuildConfig.from_yaml(args.config)
@@ -663,6 +714,8 @@ def main() -> None:
         for r in rows:
             print(r.model_dump_json())
         print(f"total {sum(r.cost for r in rows):.4f}")
+    elif args.step == "select":
+        print(f"spares: {select(cfg)}")
     elif args.step == "supplement":
         from research_agent.evalset.dataset import statuses
         from research_agent.ingest.index import SentenceTransformerEmbedder

@@ -33,6 +33,7 @@ from research_agent.evalset.dataset import (
     MEMORIZED_FILE,
     QUESTIONS_FILE,
     Candidate,
+    Decision,
     EvalsetConfig,
     ReviewConfig,
     ReviewLabel,
@@ -43,6 +44,7 @@ from research_agent.evalset.dataset import (
     current,
     load_candidates,
     load_chunks,
+    load_closed_book,
     load_first_judgments,
     load_review,
     question_record,
@@ -57,6 +59,7 @@ from research_agent.llm.client import AccountError, client_from_config
 from research_agent.llm.pricing import PricingTable
 
 PREREVIEW_FILE = "prereview.jsonl"
+SPARE = "spare:"  # reject_reason prefix of ready candidates left out of a full sampling cell
 SUMMARY_FILE = "review_summary.json"
 MARKER_START = "<!-- evalset-review:start -->"
 MARKER_END = "<!-- evalset-review:end -->"
@@ -251,6 +254,8 @@ def manual_scope(
 ) -> dict[str, str]:
     """Candidate id -> why a human reviews it: prereview_modify/drop/error or spot_check."""
     scope: dict[str, str] = {}
+    if not review.human:
+        return scope
     for rule in review.rules:
         trusted: list[str] = []  # pre-review "keep", or every candidate without a pre-review
         for c in ready:
@@ -272,6 +277,33 @@ def manual_scope(
         for cid in random.Random(review.spot_check_seed).sample(trusted, n):
             scope[cid] = "spot_check"
     return scope
+
+
+def auto_decision(cand: Candidate, pre: PreReview | None) -> Decision:
+    """The pre-review's verdict as a decision, for candidates no human looks at.
+
+    "modify" keeps the candidate with the suggested question only: answers come from the
+    documents by rule, so a suggested answer that differs drops the candidate instead.
+    A failed pre-review drops it.
+    """
+    now = "auto"
+    if pre is None or pre.decision is None:
+        return Decision(
+            decision="drop", reasons=["other"], note="pre-review failed", updated_at=now
+        )
+    if pre.decision == "keep":
+        return Decision(decision="keep", updated_at=now)
+    if pre.decision == "modify":
+        changes_answer = pre.suggested_answer and pre.suggested_answer.strip() != cand.answer
+        if not changes_answer:
+            question = pre.suggested_question
+            question = question if question and question != cand.question else None
+            return Decision(decision="keep", question=question, reasons=pre.reasons, updated_at=now)
+        note = "the pre-review changed the answer"
+        return Decision(
+            decision="drop", reasons=pre.reasons or ["other"], note=note, updated_at=now
+        )
+    return Decision(decision="drop", reasons=pre.reasons or ["other"], updated_at=now)
 
 
 class Agreement(BaseModel):
@@ -316,16 +348,25 @@ class RuleSummary(BaseModel):
     drop_reasons: dict[str, int]  # final drops (human reasons)
 
 
+class ClosedBookRate(BaseModel):
+    checked: int  # candidates with a closed-book result
+    closed_book: int  # correct at temperature 0
+    partial_memory: int  # correct only in a sample
+
+
 class ReviewSummary(BaseModel):
     prereview_model: str | None
+    human: bool
     spot_check_seed: int
     rules: list[RuleSummary]
     without_first_judgment: int  # human-reviewed but no first judgment: left out of the stats
     kept: int
     kept_by_group: dict[str, int]
-    rejected: int  # by the builder's checks
+    rejected: int  # by the builder's checks (spares not included)
+    spares: dict[str, int]  # ready candidates left out because their sampling cell was full
     memorized: int
     memorized_by_group: dict[str, int]
+    closed_book_rate: dict[str, ClosedBookRate]  # per group, over every checked candidate
 
 
 def build_final(
@@ -368,10 +409,16 @@ def build_final(
         for c in mine:
             pre = prereviews.get(c.candidate_id)
             if c.candidate_id not in scope:
+                auto = auto_decision(c, pre) if rule.prereview else None
+                if auto is not None and auto.decision == "drop":
+                    dropped += 1
+                    drop_reasons.update(auto.reasons or ["other"])
+                    continue
+                modified += auto is not None and auto.label == "modify"
                 sources["prereview" if rule.prereview else "auto"] += 1
                 kept.append(
                     question_record(
-                        cfg, c, None, "ready", "prereview" if rule.prereview else "auto"
+                        cfg, c, auto, "ready", "prereview" if rule.prereview else "auto"
                     )
                 )
                 continue
@@ -430,16 +477,38 @@ def build_final(
     ]
     kept.sort(key=lambda q: q["id"])
     memorized.sort(key=lambda q: q["id"])
+    results = current(load_closed_book(cfg), candidates)
+    rates: dict[str, ClosedBookRate] = {}
+    for group in cfg.groups:
+        rows = [
+            r
+            for c in candidates
+            if c.group == group
+            and (r := results.get(c.candidate_id)) is not None
+            and r.error is None
+            and r.attempts
+        ]
+        rates[group] = ClosedBookRate(
+            checked=len(rows),
+            closed_book=sum(r.attempts[0].correct for r in rows),
+            partial_memory=sum(
+                not r.attempts[0].correct and any(a.correct for a in r.attempts) for r in rows
+            ),
+        )
+    spare = [c for c in candidates if (c.reject_reason or "").startswith(SPARE)]
     summary = ReviewSummary(
         prereview_model=review_cfg.llm.model if review_cfg.llm else None,
+        human=review_cfg.human,
         spot_check_seed=review_cfg.spot_check_seed,
         rules=rules,
         without_first_judgment=without_first,
         kept=len(kept),
         kept_by_group=dict(Counter(q["question_type"] for q in kept)),
-        rejected=sum(s == "rejected" for s in st.values()),
+        rejected=sum(s == "rejected" for s in st.values()) - len(spare),
+        spares=dict(Counter(c.group for c in spare)),
         memorized=len(memorized),
         memorized_by_group=dict(Counter(q["question_type"] for q in memorized)),
+        closed_book_rate=rates,
     )
     return kept, memorized, summary
 
@@ -475,25 +544,30 @@ def summary_markdown(cfg: EvalsetConfig, s: ReviewSummary) -> str:
             row("预审", f"`{s.prereview_model}`，提示词 {versions}")
             row("预审结论", _counts(r.prereview_decisions, LABELS))
             row("预审给出的原因", _counts(r.prereview_reasons, reasons))
-        scope = _counts(r.scope, SCOPE_LABELS)
-        row("人工复核范围", f"{scope}（抽检 {r.spot_check_n} 题，种子 {s.spot_check_seed}）")
-        if r.prereview and r.agreement_spot_check and r.agreement_all_human:
-            for item, a in (
-                ("抽检一致率", r.agreement_spot_check),
-                ("全部人工复核题的一致率", r.agreement_all_human),
-            ):
-                value = f"三分类 {_pct(a.exact)}；保留与丢弃 {_pct(a.usable)}"
-                row(f"{item}（按第一次判断，n={a.n}）", value)
+        if not s.human:
+            rule = "按预审结论取舍" if r.prereview else "规则抽取并核对，全部保留"
+            row("人工复核", f"未做（{rule}）")
         else:
-            row("抽检结果（按第一次判断）", _counts(r.spot_check_first, LABELS))
-        changed = "，".join(
-            "{} → {} {}".format(*(LABELS[x] for x in k.split(" -> ")), v)
-            for k, v in r.changed_after_first.items()
-        )
-        n_changed = sum(r.changed_after_first.values())
-        row("第一次判断之后改判", f"{n_changed} 题（{changed}）" if changed else "0 题")
+            scope = _counts(r.scope, SCOPE_LABELS)
+            row("人工复核范围", f"{scope}（抽检 {r.spot_check_n} 题，种子 {s.spot_check_seed}）")
+            if r.prereview and r.agreement_spot_check and r.agreement_all_human:
+                for item, a in (
+                    ("抽检一致率", r.agreement_spot_check),
+                    ("全部人工复核题的一致率", r.agreement_all_human),
+                ):
+                    value = f"三分类 {_pct(a.exact)}；保留与丢弃 {_pct(a.usable)}"
+                    row(f"{item}（按第一次判断，n={a.n}）", value)
+            else:
+                row("抽检结果（按第一次判断）", _counts(r.spot_check_first, LABELS))
+            changed = "，".join(
+                "{} → {} {}".format(*(LABELS[x] for x in k.split(" -> ")), v)
+                for k, v in r.changed_after_first.items()
+            )
+            n_changed = sum(r.changed_after_first.values())
+            row("第一次判断之后改判", f"{n_changed} 题（{changed}）" if changed else "0 题")
         sources = _counts(
-            r.kept_by_source, {"human": "人工决定", "prereview": "采用预审", "auto": "未复核"}
+            r.kept_by_source,
+            {"human": "人工决定", "prereview": "按预审保留", "auto": "规则核对"},
         )
         row("最终保留", f"{r.kept} / {r.ready} 题（{sources}；其中修改过 {r.kept_modified}）")
         row("丢弃", f"{r.dropped} 题：{_counts(r.drop_reasons, reasons)}")
@@ -501,6 +575,15 @@ def summary_markdown(cfg: EvalsetConfig, s: ReviewSummary) -> str:
     rows.append(f"| 合计 | 最终保留 | {s.kept} 题（{total}） |")
     memorized = _counts(s.memorized_by_group, cfg.groups)
     rows.append(f"| 合计 | 闭卷可答（`memorized.json`） | {s.memorized} 题（{memorized}） |")
+    for group, rate in s.closed_book_rate.items():
+        if rate.checked:
+            share = (rate.closed_book + rate.partial_memory) / rate.checked
+            rows.append(
+                f"| {cfg.groups[group]} | 闭卷可答率 | {share:.0%}（{rate.checked} 题中 temperature 0 答对 "
+                f"{rate.closed_book}，采样答对 {rate.partial_memory}） |"
+            )
+    if s.spares:
+        rows.append(f"| 合计 | 备用（所在分层已满，未用） | {_counts(s.spares, cfg.groups)} |")
     if s.without_first_judgment:
         rows.append(f"| 合计 | 没有第一次判断（不计入统计） | {s.without_first_judgment} 题 |")
     return "\n".join(rows)

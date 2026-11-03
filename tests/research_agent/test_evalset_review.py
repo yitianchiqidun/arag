@@ -192,3 +192,71 @@ def test_round_trip(env_api: None, tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert "| 描述问法 | 第一次判断之后改判 | 1 题（修改 → 丢弃 1） |" in readme
     assert "| 直接问法、版本变更 | 抽检结果（按第一次判断） | 保留 1 |" in readme
     assert "| 合计 | 闭卷可答（`memorized.json`） | 2 题（直接问法 1，版本变更 1） |" in readme
+
+
+def test_auto_decision() -> None:
+    cand = CANDIDATES[2]  # answer "1 GB"
+
+    def verdict(decision: str | None, **kw: object) -> PreReview:
+        return PreReview(
+            candidate_id=cand.candidate_id,
+            question=cand.question,
+            answer=cand.answer,
+            model="r",
+            decision=decision,  # type: ignore[arg-type]
+            **kw,  # type: ignore[arg-type]
+        )
+
+    assert review.auto_decision(cand, verdict("keep")).label == "keep"
+    reworded = review.auto_decision(cand, verdict("modify", suggested_question="新问法？"))
+    assert (reworded.label, reworded.question) == ("modify", "新问法？")
+    same = review.auto_decision(cand, verdict("modify", suggested_answer="1 GB"))
+    assert same.label == "keep"  # nothing actually changed
+    other = review.auto_decision(cand, verdict("modify", suggested_answer="2 GB"))
+    assert other.label == "drop"  # answers come from the documents, not from the reviewer
+    dropped = review.auto_decision(cand, verdict("drop", reasons=["not_unique"]))
+    assert (dropped.label, dropped.reasons) == ("drop", ["not_unique"])
+    assert review.auto_decision(cand, None).label == "drop"
+
+
+def test_finalize_without_human_review(
+    env_api: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = load(write_evalset(tmp_path))
+    assert cfg.review is not None
+    cfg = cfg.model_copy(update={"review": cfg.review.model_copy(update={"human": False})})
+    dataset.write_candidates(cfg, CANDIDATES)
+
+    def model(prompt: str, temperature: float) -> str:
+        if prompt.startswith("你在审核"):
+            if "标准答案：1 GB" in prompt:
+                return json.dumps({"decision": "drop", "reasons": ["ambiguous"]})
+            return json.dumps({"decision": "modify", "suggested_question": "新问法？"})
+        return "0" if "mini_timeout" in prompt else "不知道"  # memorized: v1
+
+    for module in (closed_book, review):
+        monkeypatch.setattr(module, "client_from_config", fake_factory(model))
+    monkeypatch.setattr(PricingTable, "from_yaml", lambda path: PRICES)
+    closed_book.run_closed_book(cfg)
+    # Selection happens after the closed-book filter: a full cell's extra ready candidate.
+    spare = CANDIDATES[1].model_copy(update={"reject_reason": review.SPARE + " cell full"})
+    dataset.write_candidates(cfg, [CANDIDATES[0], spare, *CANDIDATES[2:]])
+    review.run_prereview(cfg)
+    assert review.human_scope(cfg)[0] == {}  # nobody to review
+    summary = review.finalize(cfg)
+    questions = json.loads((cfg.out / "questions.json").read_text())
+    by_id = {q["id"]: q for q in questions}
+    assert set(by_id) == {"mini__direct__d1", "mini__descriptive__s2"}
+    assert by_id["mini__descriptive__s2"]["question"] == "新问法？"
+    assert by_id["mini__direct__d1"]["review"] == "auto"
+    _, descriptive = summary.rules
+    assert (descriptive.dropped, descriptive.drop_reasons) == (1, {"ambiguous": 1})
+    assert summary.spares == {"direct": 1}
+    rate = summary.closed_book_rate["version"]
+    assert (rate.checked, rate.closed_book, rate.partial_memory) == (1, 1, 0)
+    assert summary.closed_book_rate["direct"].checked == 2  # the spare was checked too
+    readme = (cfg.out / "README.md").read_text() if (cfg.out / "README.md").exists() else ""
+    assert summary.human is False and readme == ""
+    table = review.summary_markdown(cfg, summary)
+    assert "| 描述问法 | 人工复核 | 未做（按预审结论取舍） |" in table
+    assert "| 版本变更 | 闭卷可答率 | 100%（1 题中 temperature 0 答对 1，采样答对 0） |" in table

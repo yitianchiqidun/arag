@@ -77,6 +77,9 @@ class ReviewConfig(BaseModel):
     reasons: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_REASONS))
     rules: list[ScopeRule] = Field(min_length=1)
     llm: LLMConfig | None = None  # pre-review model; must differ from the agent model
+    # False: no human review at all; pre-reviewed groups follow the pre-review (keep, modify
+    # with its rewritten question only, drop), the other groups keep every ready candidate.
+    human: bool = True
     spot_check_seed: int = 2026
     summary_docs: list[str] = Field(default_factory=list)  # besides out_dir/README.md
 
