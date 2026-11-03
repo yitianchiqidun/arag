@@ -49,6 +49,12 @@ research = [
 viewer = [
     "streamlit>=1.40",
 ]
+# Stage 6 main agent (research_agent/assistant): LangGraph pinned (PLAN: a fixed version).
+agent = [
+    "langgraph==1.2.19",
+    "langgraph-checkpoint==4.3.1",
+    "langgraph-checkpoint-sqlite==3.1.3",
+]
 # Stage 5 TiDB tools (research_agent/tidb): MySQL protocol client.
 tidb = [
     "pymysql>=1.1",

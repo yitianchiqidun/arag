@@ -13,3 +13,4 @@
 | 2026-11-02 | `.gitignore` | `results/` 改为 `/results/` | 原规则匹配任意层级的 `results` 目录，把 `docs/results/` 下要提交的对比表也忽略了 | 把对比表副本放到别的目录名下：会和“结果放在 results”这一直观约定不一致；改成只忽略根目录的运行结果更准确 |
 | 2026-11-02 | `pyproject.toml` | 新增可选依赖组 `viewer`（streamlit） | 阶段 2 的轨迹回放页面需要 Streamlit | 放进 `research` 组：阶段 6 的服务镜像会被迫带上 Streamlit 及其依赖；单独一组按需安装 |
 | 2026-11-03 | `pyproject.toml` | 新增可选依赖组 `tidb`（pymysql、类型桩） | 阶段 5 的 TiDB 运维工具要通过 MySQL 协议连接本地集群 | 放进 `research` 组：评测和检索代码不需要数据库驱动，单独一组按需安装 |
+| 2026-11-03 | `pyproject.toml` | 新增可选依赖组 `agent`（langgraph 1.2.19、checkpoint 4.3.1、checkpoint-sqlite 3.1.3，锁定版本） | 阶段 6 的主 Agent 用 LangGraph 编排，方案要求锁定具体版本 | 放进 `research` 组：评测代码不需要 LangGraph，单独一组按需安装 |
