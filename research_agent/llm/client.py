@@ -131,6 +131,7 @@ class MeteredLLMClient(LLMClient):
         tools: list[dict[str, Any]] | None,
         temperature: float | None,
         max_tokens: int | None,
+        tool_choice: str | None = None,
     ) -> dict[str, Any]:
         # Mirrors LLMClient.chat; reasoning_effort is intentionally unsupported (OpenAI-only).
         payload: dict[str, Any] = {
@@ -141,7 +142,7 @@ class MeteredLLMClient(LLMClient):
         }
         if tools:
             payload["tools"] = tools
-            payload["tool_choice"] = "auto"
+            payload["tool_choice"] = tool_choice or "auto"
         payload.update(self.extra_body)
         return payload
 
@@ -177,8 +178,9 @@ class MeteredLLMClient(LLMClient):
         tools: list[dict[str, Any]] | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        tool_choice: str | None = None,  # with tools: "auto" (default) or "none"
     ) -> dict[str, Any]:
-        payload = self._build_payload(messages, tools, temperature, max_tokens)
+        payload = self._build_payload(messages, tools, temperature, max_tokens, tool_choice)
         attempts = [0]
         start = time.perf_counter()
         try:
