@@ -8,11 +8,16 @@ import pytest
 
 from research_agent.diagnosis import scenarios as sc
 from research_agent.diagnosis.run import (
+    answer_docs,
+    comparison_markdown,
+    load_results,
     missing_keywords,
+    run_all,
     run_scenario,
     summary_markdown,
     unapproved_writes,
 )
+from research_agent.eval.citations import ChunkRef
 from research_agent.tidb.db import QueryResult
 
 from .test_tidb_tools import FakeDatabase
@@ -163,6 +168,12 @@ def test_missing_keywords_and_unapproved_writes() -> None:
     assert unapproved_writes(lines) == 1
 
 
+REFS = {
+    "7": ChunkRef(doc="explain-overview.md"),
+    "9": ChunkRef(doc="system-variables.md"),
+}
+
+
 class FakeScenario(sc.Scenario):
     name = "fake"
     title = "假场景"
@@ -212,7 +223,7 @@ class FakeApp:
         return [
             {
                 "type": "answer",
-                "text": "根因：status 没有索引",
+                "text": "根因：status 没有索引（Chunk 7）",
                 "cost": 0.01,
                 "citations": ["explain-overview.md › 执行计划"],
             },
@@ -223,9 +234,10 @@ class FakeApp:
 def test_run_scenario_scores_and_approves_only_the_fix(tmp_path: Path) -> None:
     app = FakeApp(["CREATE INDEX a ON orders (created_at)", "CREATE INDEX b ON orders (status)"])
     scenario = FakeScenario()
-    r = run_scenario(app, scenario, "s", tmp_path / "audit.jsonl", tmp_path / "e.jsonl")
+    r = run_scenario(app, scenario, "s", tmp_path / "audit.jsonl", tmp_path / "e.jsonl", REFS)
     assert app.decisions == [False, True]
     assert (r.diagnosed, r.fix_proposed, r.related_doc_cited) == (True, True, True)
+    assert r.answer_docs == ["explain-overview.md"]
     assert (r.intent, r.tool_calls, r.latency_s, r.cost) == ("diagnosis", 2, 15.0, 0.02)
     assert r.cited_docs == ["explain-overview.md"] and r.unapproved_writes == 0
     assert scenario.log == ["inject", "cleanup"]
@@ -240,3 +252,40 @@ def test_run_scenario_cleans_up_after_an_error(tmp_path: Path) -> None:
     r = run_scenario(FakeApp([]), scenario, "s", tmp_path / "audit.jsonl", tmp_path / "e.jsonl")
     assert scenario.log == ["inject", "cleanup"]
     assert r.error == "RuntimeError: injection failed" and not r.diagnosed
+
+
+def test_answer_docs_from_chunk_ids_and_file_names() -> None:
+    answer = "依据：Chunk 9 和 chunk 7；另见 system-variables.md 与 troubleshoot-lock-conflicts.md"
+    assert answer_docs(answer, REFS) == ["system-variables.md", "explain-overview.md"]
+    assert answer_docs("没有引用", REFS) == []
+
+
+def test_comparison_rescores_earlier_runs(tmp_path: Path) -> None:
+    first = run_scenario(
+        FakeApp(["CREATE INDEX b ON orders (status)"]),
+        FakeScenario(),
+        "s",
+        tmp_path / "a.jsonl",
+        tmp_path / "e1.jsonl",
+    )
+    old = tmp_path / "old"
+    old.mkdir()
+    (old / "results.jsonl").write_text(first.model_dump_json() + "\n", "utf-8")
+    before = load_results([old], REFS)  # the fake scenario has no related docs registered
+    assert before[0].answer_docs == ["explain-overview.md"] and not before[0].related_doc_cited
+    second = first.model_copy(update={"diagnosed": False})
+    table = comparison_markdown(before, [second])
+    assert (
+        "| 假场景 | 修改前 | diagnosis | ✓ |" in table
+        and "| 假场景 | 修改后 | diagnosis | ✗ |" in table
+    )
+    assert "修改前：诊断正确 1 / 1" in table and "修改后：诊断正确 0 / 1" in table
+    assert "回答引用文档 1 / 1" in table
+
+
+def test_run_all_stops_at_the_cost_limit(tmp_path: Path) -> None:
+    scenarios = [FakeScenario(), FakeScenario()]
+    app = FakeApp(["CREATE INDEX b ON orders (status)"])
+    results = run_all(app, scenarios, tmp_path, tmp_path / "audit.jsonl", refs=REFS, max_cost=0.005)
+    assert len(results) == 1 and scenarios[1].log == []
+    assert "回答引用文档 1 / 1" in (tmp_path / "summary.md").read_text("utf-8")

@@ -6,10 +6,12 @@ the answer; anything else is rejected), then clean up, also after an error. Scor
 
 - diagnosed: every keyword group of the scenario appears in the final answer;
 - fix: the reference write was proposed (or, when no write fixes it, none was proposed);
-- related docs: the answer cites a document of the scenario's list;
+- documents: the final answer cites a document (a chunk id it names, or a document file name)
+  and whether one of them is in the scenario's list of related documents;
 - tool calls, writes executed without approval (from the audit log; must be 0), latency, cost.
 
     python -m research_agent.diagnosis --out results/stage8/scenarios [--only lock_wait,...]
+        [--before <earlier run dirs, comma-separated>] [--max-cost 1.5]
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from typing import Any, Protocol
 from pydantic import BaseModel
 
 from research_agent.diagnosis.scenarios import SCENARIOS, SUPPLEMENTARY, Scenario
+from research_agent.eval.citations import ChunkRef, cited_chunk_ids
 
 MAX_CONFIRMATIONS = 3
 
@@ -53,8 +56,8 @@ class ScenarioResult(BaseModel):
     expected_write: str | None
     proposals: list[Proposal]
     fix_proposed: bool
-    cited_docs: list[str]
-    related_doc_cited: bool
+    cited_docs: list[str]  # documents of the search_docs results attached to the answers
+    related_doc_cited: bool  # one of answer_docs is a related document of the scenario
     tool_calls: int
     tools: dict[str, int]
     unapproved_writes: int  # writes executed without the user's approval; must be 0
@@ -63,6 +66,28 @@ class ScenarioResult(BaseModel):
     answer: str
     error: str | None = None
     cleanup_errors: list[str] = []
+    answer_docs: list[str] = []  # documents the final answer itself cites
+
+
+def answer_docs(answer: str, refs: dict[str, ChunkRef]) -> list[str]:
+    """Documents the answer cites: those of the chunk ids it names, then file names it writes."""
+    docs = [refs[c].doc for c in cited_chunk_ids(answer) if c in refs and refs[c].doc]
+    known = sorted({r.doc for r in refs.values() if r.doc}, key=len, reverse=True)
+    docs += [d for d in known if d in answer]
+    return [str(d) for d in dict.fromkeys(docs)]
+
+
+def score_documents(
+    result: ScenarioResult, related: tuple[str, ...], refs: dict[str, ChunkRef]
+) -> ScenarioResult:
+    """Recompute the document columns from the final answer (also for runs made before them)."""
+    docs = answer_docs(result.answer, refs)
+    return result.model_copy(
+        update={
+            "answer_docs": docs,
+            "related_doc_cited": any(r in d for d in docs for r in related),
+        }
+    )
 
 
 def missing_keywords(answer: str, groups: list[tuple[str, ...]]) -> list[list[str]]:
@@ -80,7 +105,12 @@ def _audit_lines(path: Path) -> list[str]:
 
 
 def run_scenario(
-    app: Assistant, scenario: Scenario, session: str, audit_file: Path, events_file: Path
+    app: Assistant,
+    scenario: Scenario,
+    session: str,
+    audit_file: Path,
+    events_file: Path,
+    refs: dict[str, ChunkRef] | None = None,
 ) -> ScenarioResult:
     audit_before = len(_audit_lines(audit_file))
     events: list[dict[str, Any]] = []
@@ -122,7 +152,7 @@ def run_scenario(
     )
     missing = missing_keywords(final, scenario.keywords())
     accepted = [p for p in proposals if p.approved]
-    return ScenarioResult(
+    result = ScenarioResult(
         name=scenario.name,
         title=scenario.title,
         intent=next((e.get("intent") for e in events if e.get("type") == "route"), None),
@@ -132,7 +162,7 @@ def run_scenario(
         proposals=proposals,
         fix_proposed=bool(accepted) if scenario.expected_write else not proposals,
         cited_docs=cited,
-        related_doc_cited=any(d in doc for doc in cited for d in scenario.related_docs),
+        related_doc_cited=False,
         tool_calls=sum(tools.values()),
         tools=dict(tools),
         unapproved_writes=unapproved_writes(_audit_lines(audit_file)[audit_before:]),
@@ -144,42 +174,85 @@ def run_scenario(
         error=error,
         cleanup_errors=scenario.cleanup_errors,
     )
+    return score_documents(result, scenario.related_docs, refs or {})
 
 
 def _mark(value: bool) -> str:
     return "✓" if value else "✗"
 
 
+def _fix(r: ScenarioResult) -> str:
+    if r.expected_write:
+        done = "；".join(
+            f"{p.statement}（{'批准' if p.approved else '拒绝'}）" for p in r.proposals
+        )
+        return f"{_mark(r.fix_proposed)} " + (done or "未提出")
+    if not r.proposals:
+        return f"{_mark(r.fix_proposed)} 未提出修改（正确）"
+    return f"{_mark(r.fix_proposed)} " + "；".join(f"{p.statement}（拒绝）" for p in r.proposals)
+
+
+HEADER = (
+    "| 路由 | 诊断正确 | 处理建议 | 回答引用文档 | 引用相关文档 | 工具调用 | 未经确认的写操作 "
+    "| 耗时 (s) | 花费（元） |"
+)
+
+
+def _cells(r: ScenarioResult) -> str:
+    return (
+        f"| {r.intent} | {_mark(r.diagnosed)} | {_fix(r)} | {_mark(bool(r.answer_docs))} | "
+        f"{_mark(r.related_doc_cited)} | {r.tool_calls} | {r.unapproved_writes} | {r.latency_s} | "
+        f"{r.cost:.4f} |"
+    )
+
+
+def _totals(results: list[ScenarioResult]) -> str:
+    n = len(results)
+    return (
+        f"诊断正确 {sum(r.diagnosed for r in results)} / {n}，处理建议正确 "
+        f"{sum(r.fix_proposed for r in results)} / {n}，回答引用文档 "
+        f"{sum(bool(r.answer_docs) for r in results)} / {n}，引用相关文档 "
+        f"{sum(r.related_doc_cited for r in results)} / {n}，未经确认的写操作 "
+        f"{sum(r.unapproved_writes for r in results)}，花费 {sum(r.cost for r in results):.4f} 元"
+    )
+
+
 def summary_markdown(results: list[ScenarioResult]) -> str:
     lines = [
-        "| 场景 | 路由 | 诊断正确 | 处理建议 | 引用相关文档 | 工具调用 | 未经确认的写操作 | 耗时 (s) | 花费（元） |",
-        "| --- | --- | :---: | --- | :---: | ---: | ---: | ---: | ---: |",
+        "| 场景 " + HEADER,
+        "| --- | --- | :---: | --- | :---: | :---: | ---: | ---: | ---: | ---: |",
     ]
-    for r in results:
-        if r.expected_write:
-            fix = f"{_mark(r.fix_proposed)} " + (
-                "；".join(
-                    f"{p.statement}（{'批准' if p.approved else '拒绝'}）" for p in r.proposals
-                )
-                or "未提出"
-            )
-        else:
-            fix = f"{_mark(r.fix_proposed)} " + (
-                "未提出修改（正确）"
-                if not r.proposals
-                else "；".join(f"{p.statement}（拒绝）" for p in r.proposals)
-            )
-        lines.append(
-            f"| {r.title} | {r.intent} | {_mark(r.diagnosed)} | {fix} | {_mark(r.related_doc_cited)} | "
-            f"{r.tool_calls} | {r.unapproved_writes} | {r.latency_s} | {r.cost:.4f} |"
-        )
-    n = len(results)
-    lines.append(
-        f"\n诊断正确 {sum(r.diagnosed for r in results)} / {n}，处理建议正确 "
-        f"{sum(r.fix_proposed for r in results)} / {n}，未经确认的写操作 "
-        f"{sum(r.unapproved_writes for r in results)}，花费 {sum(r.cost for r in results):.4f} 元。"
-    )
+    lines += [f"| {r.title} " + _cells(r) for r in results]
+    lines.append(f"\n{_totals(results)}。")
     return "\n".join(lines)
+
+
+def comparison_markdown(before: list[ScenarioResult], after: list[ScenarioResult]) -> str:
+    """Two rows per scenario (before, after) and the totals of both runs."""
+    earlier = {r.name: r for r in before}
+    lines = [
+        "| 场景 | 运行 " + HEADER,
+        "| --- | --- | --- | :---: | --- | :---: | :---: | ---: | ---: | ---: | ---: |",
+    ]
+    for r in after:
+        if r.name in earlier:
+            lines.append(f"| {r.title} | 修改前 " + _cells(earlier[r.name]))
+        lines.append(f"| {r.title} | 修改后 " + _cells(r))
+    kept = [earlier[r.name] for r in after if r.name in earlier]
+    lines.append(f"\n修改前：{_totals(kept)}。\n\n修改后：{_totals(after)}。")
+    return "\n".join(lines)
+
+
+def load_results(dirs: list[Path], refs: dict[str, ChunkRef]) -> list[ScenarioResult]:
+    """Results of earlier runs, the later directory winning per scenario, rescored for the
+    document columns."""
+    related = {cls.name: cls.related_docs for cls in SCENARIOS + SUPPLEMENTARY}
+    by_name: dict[str, ScenarioResult] = {}
+    for d in dirs:
+        for line in (d / "results.jsonl").read_text(encoding="utf-8").splitlines():
+            r = ScenarioResult.model_validate_json(line)
+            by_name[r.name] = score_documents(r, related.get(r.name, ()), refs)
+    return list(by_name.values())
 
 
 def run_all(
@@ -188,10 +261,18 @@ def run_all(
     out: Path,
     audit_file: Path,
     session_prefix: str = "stage8",
+    refs: dict[str, ChunkRef] | None = None,
+    max_cost: float | None = None,
 ) -> list[ScenarioResult]:
     out.mkdir(parents=True, exist_ok=True)
-    results = []
+    results: list[ScenarioResult] = []
     for scenario in scenarios:
+        spent = sum(r.cost for r in results)
+        if max_cost is not None and spent >= max_cost:
+            print(
+                f"cost limit {max_cost} reached ({spent:.4f}); {scenario.name} not run", flush=True
+            )
+            break
         print(f"[{scenario.name}] {scenario.title}", flush=True)
         result = run_scenario(
             app,
@@ -199,9 +280,11 @@ def run_all(
             f"{session_prefix}-{scenario.name}",
             audit_file,
             out / f"{scenario.name}.events.jsonl",
+            refs,
         )
         print(
-            f"  diagnosed={result.diagnosed} fix={result.fix_proposed} error={result.error}",
+            f"  diagnosed={result.diagnosed} fix={result.fix_proposed} cost={result.cost} "
+            f"error={result.error}",
             flush=True,
         )
         results.append(result)
@@ -221,14 +304,19 @@ def main(
     parser.add_argument(
         "--only", default=None, help="comma-separated scenario names (also the supplementary ones)"
     )
+    parser.add_argument("--before", default=None, help="earlier run dirs to compare with")
+    parser.add_argument("--max-cost", type=float, default=None, help="CNY; checked per scenario")
     args = parser.parse_args(argv)
     from research_agent.upstream import load_env
 
     load_env()
     from research_agent.assistant.app import AssistantConfig
+    from research_agent.config import RunConfig
+    from research_agent.eval.citations import load_chunk_refs
     from research_agent.tidb.db import admin_database
 
     cfg = AssistantConfig.from_yaml(args.config)
+    refs = load_chunk_refs(RunConfig.from_yaml(cfg.run_config).data.chunks_file)
     out = Path(args.out)
     audit_file = out / "writes.jsonl"
     if make_app is None:
@@ -247,5 +335,10 @@ def main(
     scenarios = [
         cls(lambda: admin_database(cfg.tidb)) for cls in pool if names is None or cls.name in names
     ]
-    results = run_all(app, scenarios, out, audit_file)
+    results = run_all(app, scenarios, out, audit_file, refs=refs, max_cost=args.max_cost)
     print(summary_markdown(results))
+    if args.before:
+        before = load_results([Path(d) for d in args.before.split(",")], refs)
+        table = comparison_markdown(before, results)
+        (out / "comparison.md").write_text(table + "\n", encoding="utf-8")
+        print(table)
