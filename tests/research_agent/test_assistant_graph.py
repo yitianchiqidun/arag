@@ -5,6 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 
 from research_agent.assistant import prompts
@@ -263,3 +264,12 @@ def test_step_limit_asks_for_a_conclusion_without_tools() -> None:
     assert answer["text"] == "根因：status 没有索引（依据：执行计划为 TableFullScan）。"
     assert len([e for e in out if e["type"] == "tool_call"]) == 3
     assert agent.calls[-1][-1] == {"role": "user", "content": prompts.DIAG_STEP_LIMIT}
+
+
+def test_embedding_device_can_come_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    from research_agent.assistant.app import AssistantConfig
+
+    base = {"router": {"model": "r"}, "agent": {"model": "a"}}
+    assert AssistantConfig.model_validate(base).embedding_device is None
+    monkeypatch.setenv("EMBEDDING_DEVICE", "cpu")
+    assert AssistantConfig.model_validate(base).embedding_device == "cpu"

@@ -9,6 +9,7 @@ conversation can be replayed after the fact.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
 from collections.abc import Iterator
@@ -17,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from research_agent.assistant.graph import Assistant, Services
 from research_agent.assistant.retrieval import DocAnswer, DocRetriever
@@ -44,6 +45,10 @@ class AssistantConfig(BaseModel):
     audit_file: str = "data/assistant/writes.jsonl"
     max_steps: int = 12
     turn_timeout_s: float | None = 240.0  # the diagnosis loop stops after this (stage 9)
+    # Overrides the run config's embedding device, e.g. "cpu" in the Docker image (stage 9).
+    embedding_device: str | None = Field(
+        default_factory=lambda: os.environ.get("EMBEDDING_DEVICE") or None
+    )
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> AssistantConfig:
@@ -66,6 +71,9 @@ class TracedDocs:
 
 def build_services(cfg: AssistantConfig) -> tuple[Services, TracedDocs]:
     run = RunConfig.from_yaml(cfg.run_config)
+    if cfg.embedding_device:
+        embedding = run.embedding.model_copy(update={"device": cfg.embedding_device})
+        run = run.model_copy(update={"embedding": embedding})
     pricing = PricingTable.from_yaml(run.pricing_file)
     clients: dict[str, LLMConfig] = {"router": cfg.router, "agent": cfg.agent}
 
