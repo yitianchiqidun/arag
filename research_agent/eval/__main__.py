@@ -65,7 +65,7 @@ def cmd_suite(args: argparse.Namespace) -> None:
         print(compare_suite(suite)[1])
         return
     only = args.only.split(",") if args.only else None
-    print(run_suite(suite, workers=args.workers, only=only))
+    print(run_suite(suite, workers=args.workers, only=only, max_cost=args.max_cost))
 
 
 def cmd_compare(args: argparse.Namespace) -> None:
@@ -123,6 +123,9 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--only", help="comma-separated variant names to run (default: all)")
     p.add_argument("--workers", "-w", type=int, default=5)
     p.add_argument("--compare-only", action="store_true", help="only rebuild the table")
+    p.add_argument(
+        "--max-cost", type=float, default=None, help="stop the suite at this total spend (CNY)"
+    )
     p.set_defaults(func=cmd_suite)
 
     p = sub.add_parser("compare", help="comparison table over existing judged runs")

@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+import threading
 import time
 from collections import Counter
 from datetime import datetime
@@ -39,13 +40,44 @@ _BatchRunner: type = load_script("batch_runner").BatchRunner
 
 
 class RunAborted(RuntimeError):
-    """An account-level API error stopped the run (llm.client.AccountError).
+    """An account-level API error (llm.client.AccountError) or the cost limit stopped the run.
 
     Upstream BatchRunner writes a failed question as an ``Error: ...`` answer and skips it on
     resume, so running out of balance mid-run would turn every remaining question into a
-    recorded wrong answer. Questions hit by such an error are not written instead, and the
-    run raises at the end, so the same command resumes them once the account is fixed.
+    recorded wrong answer. Questions hit by such an error, or not started because of the cost
+    limit, are not written instead, and the run raises at the end, so the same command
+    resumes them once the account is fixed or the limit raised.
     """
+
+
+class CostBudget:
+    """A spending limit shared by the runs of a suite (agent and judge costs).
+
+    No question starts once ``spent`` plus a reserve for the questions still in flight
+    (workers x the most expensive question so far) reaches the limit, so the limit is not
+    overshot by more than an unusually expensive in-flight question.
+    """
+
+    def __init__(self, limit: float, spent: float = 0.0, workers: int = 1) -> None:
+        self.limit = limit
+        self.spent = spent
+        self.workers = workers
+        self.max_question = 0.0
+        self._lock = threading.Lock()
+
+    def charge(self, cost: float, question: bool = True) -> None:
+        with self._lock:
+            self.spent += cost
+            if question:
+                self.max_question = max(self.max_question, cost)
+
+    @property
+    def exhausted(self) -> bool:
+        with self._lock:
+            return self.spent + self.workers * self.max_question >= self.limit
+
+    def describe(self) -> str:
+        return f"cost limit {self.limit:.2f} reached (spent {self.spent:.4f})"
 
 
 class MeteredAgent(Protocol):
@@ -114,8 +146,10 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
         output_dir: str,
         limit: int | None = None,
         num_workers: int = 5,
+        budget: CostBudget | None = None,
     ) -> None:
         self.run_config = run_config
+        self.budget = budget
         self.pricing = pricing
         self._naive_resources: tuple[ChunkIndex, ReadChunkTool] | None = None
         self._abort_reason: str | None = None
@@ -190,8 +224,10 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
 
     def _process_one(self, item: dict[str, Any], agent: MeteredAgent) -> dict[str, Any]:
         assert isinstance(agent.llm, MeteredLLMClient)
+        if self._abort_reason is None and self.budget is not None and self.budget.exhausted:
+            self._abort_reason = self.budget.describe()
         if self._abort_reason is not None:
-            raise RunAborted(f"skipped after an account-level error: {self._abort_reason}")
+            raise RunAborted(f"not started: {self._abort_reason}")
         start = time.perf_counter()
         record: dict[str, Any] = super()._process_one(item, agent)
         account_errors = [r.error for r in agent.llm.records if r.account_error]
@@ -217,6 +253,8 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
         trajectory = self._recorders.pop(agent).build(
             record, self.run_config.method, self.run_config.llm.model
         )
+        if self.budget is not None:
+            self.budget.charge(float(record.get("total_cost") or 0.0))
         # Written before upstream appends the prediction: after a crash in between, the
         # question is rerun and the loader keeps the last trajectory of each question.
         with self.write_lock, open(self.trajectories_file, "a", encoding="utf-8") as f:
@@ -263,9 +301,8 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
         super().run()
         if self._abort_reason is not None:
             raise RunAborted(
-                f"run stopped by an account-level API error ({self._abort_reason}); the "
-                "questions it hit were not recorded. Fix the account, then rerun the same "
-                "command to resume."
+                f"run stopped: {self._abort_reason}. The questions it hit were not recorded; "
+                "fix the account or raise the cost limit, then rerun the same command to resume."
             )
         # Upstream only prints questions whose processing raised; make a gap an error.
         done = self._load_completed_qids()

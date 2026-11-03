@@ -10,7 +10,8 @@ import yaml
 from research_agent.eval import judge as judge_mod
 from research_agent.eval import runner as runner_mod
 from research_agent.eval.compare import check_comparable
-from research_agent.eval.suite import Suite, deep_merge, run_suite
+from research_agent.eval.runner import RunAborted
+from research_agent.eval.suite import Suite, deep_merge, run_suite, suite_spent
 from research_agent.llm.client import MeteredLLMClient
 
 from .fakes import PLUS_PRICING, completion, tool_call
@@ -161,3 +162,19 @@ def test_suite_rejects_unknown_reference(suite_file: Path) -> None:
     data["reference"] = "nope"
     with pytest.raises(ValueError, match="reference"):
         Suite.model_validate(data)
+
+
+def test_suite_stops_at_the_cost_limit_and_resumes(
+    env_api: None, suite_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scripted_clients(monkeypatch)
+    suite = Suite.from_yaml(suite_file)
+    with pytest.raises(RunAborted, match="cost limit"):
+        run_suite(suite, workers=1, max_cost=1e-9)
+    spent = suite_spent(suite)
+    assert spent > 0  # what ran is counted: one question of the first variant
+
+    run_suite(suite, workers=1, max_cost=1.0)  # a higher limit finishes the suite
+    assert suite_spent(suite) > spent
+    out = Path(suite.output_root)
+    assert all((out / name / "judge_meta.json").exists() for name in ("snippets", "full_chunks"))

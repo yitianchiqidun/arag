@@ -7,7 +7,12 @@ import pytest
 
 from research_agent.config import RunConfig
 from research_agent.eval import runner as runner_mod
-from research_agent.eval.runner import MeteredBatchRunner, RunAborted, termination_reason
+from research_agent.eval.runner import (
+    CostBudget,
+    MeteredBatchRunner,
+    RunAborted,
+    termination_reason,
+)
 from research_agent.llm import client as client_mod
 from research_agent.llm.client import MeteredLLMClient, UsageSummary
 from research_agent.llm.pricing import PricingTable
@@ -147,3 +152,37 @@ def test_account_error_stops_the_run_without_recording_wrong_answers(
     records = [json.loads(line) for line in predictions.read_text().splitlines()]
     assert sorted(r["qid"] for r in records) == ["q1", "q2"]
     assert all(r["pred_answer"] == "Paris" for r in records)
+
+
+def test_cost_limit_stops_new_questions_and_resumes(
+    env_api: None, tiny_corpus: dict[str, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scripted_client_factory(monkeypatch)
+    pricing = PricingTable(currency="CNY", models={"m": PLUS_PRICING})
+    out = tmp_path / "run"
+    questions = str(tiny_corpus["questions"])
+    budget = CostBudget(limit=1e-9, workers=1)  # the first question uses it up
+    with pytest.raises(RunAborted, match="cost limit"):
+        MeteredBatchRunner(
+            make_config(tiny_corpus), pricing, questions, str(out), num_workers=1, budget=budget
+        ).run()
+    records = [json.loads(line) for line in (out / "predictions.jsonl").read_text().splitlines()]
+    assert len(records) == 1 and budget.spent == pytest.approx(records[0]["total_cost"])
+
+    # A higher limit resumes the remaining question only.
+    budget = CostBudget(limit=1.0, spent=budget.spent, workers=1)
+    MeteredBatchRunner(
+        make_config(tiny_corpus), pricing, questions, str(out), num_workers=1, budget=budget
+    ).run()
+    records = [json.loads(line) for line in (out / "predictions.jsonl").read_text().splitlines()]
+    assert sorted(r["qid"] for r in records) == ["q1", "q2"]
+    assert budget.spent == pytest.approx(sum(r["total_cost"] for r in records))
+
+
+def test_cost_budget_reserves_in_flight_questions() -> None:
+    budget = CostBudget(limit=1.0, spent=0.5, workers=4)
+    budget.charge(0.1)  # 0.6 spent + 4 x 0.1 in flight = 1.0
+    assert budget.exhausted and "spent 0.6000" in budget.describe()
+    judge = CostBudget(limit=1.0, workers=4)
+    judge.charge(0.5, question=False)  # judge calls do not count as a question
+    assert not judge.exhausted

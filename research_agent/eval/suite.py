@@ -11,7 +11,7 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -20,6 +20,9 @@ from research_agent.config import RunConfig
 from research_agent.eval.compare import ComparedRun, compare_runs, write_comparison
 from research_agent.eval.summarize import load_predictions, write_summary
 from research_agent.llm.pricing import PricingTable
+
+if TYPE_CHECKING:
+    from research_agent.eval.runner import CostBudget
 
 
 class SuiteVariant(BaseModel):
@@ -95,7 +98,23 @@ def is_judged(run_dir: Path, n_questions: int) -> bool:
     return len(records) == n_questions and all("llm_accuracy" in r for r in records)
 
 
-def run_variant(suite: Suite, variant: SuiteVariant, workers: int) -> None:
+def suite_spent(suite: Suite) -> float:
+    """Agent + judge cost already spent by the suite's own runs (reused runs excluded)."""
+    total = 0.0
+    for v in suite.variants:
+        out = suite.run_dir(v)
+        if v.run_dir is not None or not (out / "predictions.jsonl").exists():
+            continue
+        total += sum(float(r.get("total_cost") or 0.0) for r in load_predictions(out))
+        judge_meta = out / "judge_meta.json"
+        if judge_meta.exists():
+            total += float(json.loads(judge_meta.read_text())["usage"]["cost"])
+    return total
+
+
+def run_variant(
+    suite: Suite, variant: SuiteVariant, workers: int, budget: CostBudget | None = None
+) -> None:
     """Run, judge and summarize one variant, skipping whatever is already done."""
     from research_agent.eval.judge import judge_predictions
     from research_agent.eval.runner import MeteredBatchRunner
@@ -118,8 +137,12 @@ def run_variant(suite: Suite, variant: SuiteVariant, workers: int) -> None:
     )
     pricing = PricingTable.from_yaml(cfg.pricing_file)
     print(f"[{variant.name}] running {variant.description or variant.overrides}")
-    MeteredBatchRunner(cfg, pricing, suite.questions, str(out), num_workers=workers).run()
-    judge_predictions(out / "predictions.jsonl", cfg, pricing, workers)
+    MeteredBatchRunner(
+        cfg, pricing, suite.questions, str(out), num_workers=workers, budget=budget
+    ).run()
+    meta = judge_predictions(out / "predictions.jsonl", cfg, pricing, workers)
+    if budget is not None:
+        budget.charge(meta.usage.cost, question=False)
     write_summary(out)
 
 
@@ -137,7 +160,20 @@ def compare_suite(suite: Suite) -> tuple[list[ComparedRun], str]:
     return rows, markdown
 
 
-def run_suite(suite: Suite, workers: int = 5, only: list[str] | None = None) -> str:
+def run_suite(
+    suite: Suite, workers: int = 5, only: list[str] | None = None, max_cost: float | None = None
+) -> str:
+    """Run the variants in order; with ``max_cost``, stop (resumably) at that total spend."""
+    from research_agent.eval.runner import CostBudget, RunAborted
+
+    budget = None
+    if max_cost is not None:
+        budget = CostBudget(max_cost, suite_spent(suite), workers)
+        print(f"cost limit {max_cost:.2f}, already spent by this suite {budget.spent:.4f}")
     for name in only or [v.name for v in suite.variants]:
-        run_variant(suite, suite.variant(name), workers)
+        if budget is not None and budget.exhausted:
+            raise RunAborted(f"{budget.describe()} before variant {name}; raise the limit to go on")
+        run_variant(suite, suite.variant(name), workers, budget)
+    if budget is not None:
+        print(f"suite spent {budget.spent:.4f} of {max_cost:.2f}")
     return compare_suite(suite)[1]
