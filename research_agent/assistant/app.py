@@ -43,6 +43,7 @@ class AssistantConfig(BaseModel):
     trace_dir: str = "data/assistant/traces"
     audit_file: str = "data/assistant/writes.jsonl"
     max_steps: int = 12
+    turn_timeout_s: float | None = 240.0  # the diagnosis loop stops after this (stage 9)
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> AssistantConfig:
@@ -76,6 +77,7 @@ def build_services(cfg: AssistantConfig) -> tuple[Services, TracedDocs]:
         llm=llm,
         docs=docs,
         max_steps=cfg.max_steps,
+        turn_timeout_s=cfg.turn_timeout_s,
         choose_channel=lambda question, intent: channel_for(intent, cfg.fast_intents),
     )
     if cfg.use_cluster:

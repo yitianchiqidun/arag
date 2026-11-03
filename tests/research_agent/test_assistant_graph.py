@@ -236,3 +236,13 @@ def test_diagnosis_without_cluster_says_so() -> None:
     out = events(bot.ask("s1", "查询变慢了"))
     answer = next(e for e in out if e["type"] == "answer")
     assert answer["text"] == prompts.NO_CLUSTER
+
+
+def test_diagnosis_stops_at_the_turn_deadline() -> None:
+    bot, _ = assistant("diagnosis", agent=diagnosis_agent())
+    bot.services.turn_timeout_s = 1e-9  # already over when the loop starts
+    out = events(bot.ask("s1", "查询变慢了"))
+    answer = next(e for e in out if e["type"] == "answer")
+    assert answer["text"] == prompts.DIAG_TIMEOUT
+    assert not [e for e in out if e["type"] == "tool_call"]
+    assert bot.pending("s1") is None

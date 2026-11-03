@@ -58,6 +58,8 @@ class Services:
     executor: WriteExecutor | None = None
     choose_channel: Callable[[str, str], Channel] = lambda question, intent: "arag"
     max_steps: int = 12
+    turn_timeout_s: float | None = None  # the diagnosis loop stops once a turn takes longer
+    deadline: float | None = None  # set by Assistant at the start of each turn
 
 
 class AssistantState(TypedDict, total=False):
@@ -263,6 +265,16 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
         cost = state.get("cost", 0.0)
         llm = services.llm("agent")
         for _ in range(services.max_steps):
+            if services.deadline is not None and time.monotonic() > services.deadline:
+                return {
+                    "diag_messages": messages,
+                    "answer": prompts.DIAG_TIMEOUT,
+                    "evidence": evidence,
+                    "cluster_down": cluster_down,
+                    "citations": citations,
+                    "cost": cost,
+                    "pending_write": None,
+                }
             reply = llm.chat(messages, tools=TOOLS, temperature=0.0)
             cost += _cost(reply)
             message = reply["message"]
@@ -368,7 +380,9 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
 
     def check(state: AssistantState) -> dict[str, Any]:
         answer = state.get("answer") or ""
-        if state.get("evidence", 0) == 0 and state.get("cluster_down"):
+        if answer == prompts.DIAG_TIMEOUT:
+            pass  # a stopped diagnosis says so; it is not an answer without evidence
+        elif state.get("evidence", 0) == 0 and state.get("cluster_down"):
             answer = prompts.NO_CLUSTER
         elif state.get("evidence", 0) == 0:
             answer = prompts.ANSWER_PREFIX_NO_EVIDENCE + (
@@ -446,6 +460,8 @@ class Assistant:
 
     def _run(self, payload: Any, session_id: str) -> Iterator[dict[str, Any]]:
         start = time.perf_counter()
+        timeout = self.services.turn_timeout_s
+        self.services.deadline = time.monotonic() + timeout if timeout else None
         try:
             for mode, chunk in self.graph.stream(
                 payload, self._config(session_id), stream_mode=["custom", "updates"]
