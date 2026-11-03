@@ -40,13 +40,11 @@ def main() -> None:
 
             result = verify_readonly(cfg)
             for sql, error in result.items():
-                print(
-                    ("refused  " if error else "ACCEPTED ")
-                    + sql
-                    + (f"\n         {error}" if error else "")
-                )
+                print(("refused  " if error else "NOT REFUSED ") + sql)
+                if error:
+                    print(f"         {error}")
             if any(e is None for e in result.values()):
-                raise SystemExit("the read-only account could write")
+                raise SystemExit("a write probe was not refused for lack of privileges")
 
 
 if __name__ == "__main__":

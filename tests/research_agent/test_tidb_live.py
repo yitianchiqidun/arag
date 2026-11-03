@@ -49,3 +49,17 @@ def test_unconfirmed_write_changes_nothing(cfg: TiDBConfig, tmp_path: Path) -> N
     result = executor.execute(pending, confirmed=False)
     assert not result.executed
     assert reader.system_variables("tidb_mem_quota_query").rows[0][1] == before
+
+
+def test_every_readonly_tool_runs(cfg: TiDBConfig) -> None:
+    """Catches privileges the read-only account lacks (e.g. SHOW STATS_HEALTHY needs the whole
+    mysql schema, so table_stats computes the health from mysql.stats_meta instead)."""
+    tools = ReadOnlyTools(readonly_database(cfg))
+    tools.slow_queries(5)
+    tools.lock_waits()
+    tools.transactions()
+    tools.deadlocks(5)
+    tools.statement_summary(5)
+    tools.bindings()
+    assert tools.table_stats("orders").rows[0][-1] is not None
+    assert "CREATE TABLE" in tools.table_schema("orders").rows[0][1]

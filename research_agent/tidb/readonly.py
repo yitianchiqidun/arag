@@ -110,6 +110,20 @@ def check_identifier(name: str) -> str:
     return name
 
 
+def stats_healthy(modify_count: int, row_count: int, analyzed: bool = True) -> int:
+    """TiDB's statistics health (``SHOW STATS_HEALTHY``): 100 × (1 − modified / rows); 0 once
+    as many rows were modified as the table has, or when it was never analyzed. TiDB divides
+    by the row count of the last ANALYZE, ``STATS_META`` only has the current one, so this
+    is close but not always equal."""
+    if not analyzed:
+        return 0
+    if modify_count == 0:
+        return 100
+    if modify_count < row_count:
+        return int((1.0 - modify_count / row_count) * 100.0)
+    return 0
+
+
 class ReadOnlyTools:
     def __init__(self, db: Database, max_rows: int = 200) -> None:
         self.db = db
@@ -184,15 +198,25 @@ class ReadOnlyTools:
         return self.db.query(sql, [min(limit, self.max_rows)], self.max_rows)
 
     def table_stats(self, table: str) -> QueryResult:
-        """Statistics health and modify count of a table (``SHOW STATS_META`` and
-        ``SHOW STATS_HEALTHY``), to tell whether its statistics are outdated."""
+        """Statistics of a table (``SHOW STATS_META``): rows, rows modified since the last
+        ANALYZE, and the health derived from them, to tell whether they are outdated.
+
+        ``SHOW STATS_HEALTHY`` would need privileges on the whole ``mysql`` schema, which
+        holds the password hashes; the read-only account only gets ``mysql.stats_meta``.
+        """
         name = check_identifier(table).split(".")[-1]
         meta = self.db.query("SHOW STATS_META WHERE Table_name = %s", [name], self.max_rows)
-        healthy = self.db.query("SHOW STATS_HEALTHY WHERE Table_name = %s", [name], self.max_rows)
-        return QueryResult(
-            columns=[*meta.columns, "Healthy"],
-            rows=[[*row, healthy.rows[0][-1] if healthy.rows else None] for row in meta.rows],
-        )
+        col = {c: i for i, c in enumerate(meta.columns)}
+        rows = []
+        for row in meta.rows:
+            analyzed = (
+                row[col["Last_analyze_time"]] is not None if "Last_analyze_time" in col else True
+            )
+            healthy = stats_healthy(
+                int(row[col["Modify_count"]]), int(row[col["Row_count"]]), analyzed
+            )
+            rows.append([*row, healthy])
+        return QueryResult(columns=[*meta.columns, "Healthy"], rows=rows, truncated=meta.truncated)
 
     def table_schema(self, table: str) -> QueryResult:
         """``SHOW CREATE TABLE``: columns, types and indexes."""

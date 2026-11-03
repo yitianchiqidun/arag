@@ -9,7 +9,12 @@ import pytest
 
 from research_agent.tidb import cluster, sample_data, setup
 from research_agent.tidb.db import DatabaseError, QueryResult, TiDBConfig
-from research_agent.tidb.readonly import ReadOnlyTools, UnsafeSQL, check_readonly_sql
+from research_agent.tidb.readonly import (
+    ReadOnlyTools,
+    UnsafeSQL,
+    check_readonly_sql,
+    stats_healthy,
+)
 from research_agent.tidb.write import WriteExecutor, WriteTools, sql_literal
 
 
@@ -99,18 +104,23 @@ def test_readonly_tools_queries() -> None:
         tools.table_schema("orders; DROP TABLE x")
 
 
-def test_table_stats_joins_meta_and_health() -> None:
+def test_table_stats_computes_the_health() -> None:
     meta = QueryResult(
-        columns=["Db_name", "Table_name", "Modify_count", "Row_count"],
-        rows=[["shop", "orders", 5, 30000]],
+        columns=["Db_name", "Table_name", "Modify_count", "Row_count", "Last_analyze_time"],
+        rows=[["shop", "orders", 18000, 30000, "t"], ["shop", "users", 0, 10, None]],
     )
-    healthy = QueryResult(
-        columns=["Db_name", "Table_name", "Healthy"], rows=[["shop", "orders", 40]]
-    )
-    db = FakeDatabase({"STATS_META": meta, "STATS_HEALTHY": healthy})
+    db = FakeDatabase({"STATS_META": meta})
     stats = ReadOnlyTools(db).table_stats("shop.orders")
-    assert stats.columns[-1] == "Healthy" and stats.rows == [["shop", "orders", 5, 30000, 40]]
-    assert db.queries[0][1] == ["orders"]
+    assert stats.columns[-1] == "Healthy"
+    assert [row[-1] for row in stats.rows] == [40, 0]  # never analyzed: 0
+    assert db.queries[0][1] == ["orders"] and len(db.queries) == 1
+
+
+@pytest.mark.parametrize(
+    ("modified", "rows", "expected"), [(0, 0, 100), (0, 500, 100), (100, 400, 75), (500, 400, 0)]
+)
+def test_stats_healthy(modified: int, rows: int, expected: int) -> None:
+    assert stats_healthy(modified, rows) == expected
 
 
 def test_query_result_as_text() -> None:
@@ -230,9 +240,45 @@ def test_readonly_grants_and_verification(monkeypatch: pytest.MonkeyPatch) -> No
     assert setup.readonly_grants(cfg) == [
         "GRANT SELECT ON shop.* TO 'agent_ro'@'%'",
         "GRANT PROCESS ON *.* TO 'agent_ro'@'%'",
+        "GRANT SELECT ON mysql.stats_meta TO 'agent_ro'@'%'",
     ]
     monkeypatch.setattr(setup, "readonly_database", lambda c: FakeDatabase(refuse=True))
     result = setup.verify_readonly(cfg)
     assert len(result) == len(setup.WRITE_PROBES) and all(result.values())
     monkeypatch.setattr(setup, "readonly_database", lambda c: FakeDatabase())
     assert all(v is None for v in setup.verify_readonly(cfg).values())  # a writable account
+
+
+class LoginRefused(FakeDatabase):
+    def query(self, sql: str, params: Any = None, max_rows: int | None = None) -> QueryResult:
+        raise DatabaseError("Access denied for user 'agent_ro'", 1045)
+
+    def execute(self, sql: str, params: Any = None) -> int:
+        raise DatabaseError("Access denied for user 'agent_ro'", 1045)
+
+
+class OtherError(FakeDatabase):
+    def execute(self, sql: str, params: Any = None) -> int:
+        raise DatabaseError("Table doesn't exist", 1146)
+
+
+def test_verification_needs_a_working_login_and_privilege_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = TiDBConfig()
+    monkeypatch.setattr(setup, "readonly_database", lambda c: LoginRefused())
+    with pytest.raises(RuntimeError, match="cannot log in"):
+        setup.verify_readonly(cfg)
+    monkeypatch.setattr(setup, "readonly_database", lambda c: OtherError())
+    assert all(v is None for v in setup.verify_readonly(cfg).values())  # proves nothing
+
+
+def test_readonly_user_statements_pass_the_host_wildcard_as_a_parameter() -> None:
+    admin = FakeDatabase()
+    setup.create_readonly_user(admin, TiDBConfig(), "pw")
+    assert admin.executed[:2] == [
+        ("CREATE USER IF NOT EXISTS %s@%s IDENTIFIED BY %s", ["agent_ro", "%", "pw"]),
+        ("ALTER USER %s@%s IDENTIFIED BY %s", ["agent_ro", "%", "pw"]),
+    ]
+    # with parameters, the driver formats the text: no '%' besides the placeholders
+    assert all("%" not in sql.replace("%s", "") for sql, params in admin.executed if params)
