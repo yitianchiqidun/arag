@@ -127,3 +127,22 @@ def test_account_errors_are_flagged_and_not_retried(
     assert len(post.payloads) == 1 and sleeps == []
     (rec,) = client.records
     assert rec.account_error is account and rec.error is not None
+
+
+def test_local_model_is_free_and_has_its_own_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    from research_agent.config import LLMConfig
+    from research_agent.llm.client import client_from_config
+    from research_agent.llm.pricing import PricingTable
+
+    monkeypatch.delenv("VLLM_API_KEY", raising=False)
+    cfg = LLMConfig(
+        model="my-sft-model",
+        base_url="http://localhost:8000/v1",
+        api_key_env="VLLM_API_KEY",
+        local=True,
+    )
+    client = client_from_config(cfg, PricingTable(currency="CNY", models={}))
+    assert client.base_url == "http://localhost:8000/v1" and client.api_key == "EMPTY"
+    assert client.calculate_cost({"prompt_tokens": 10_000, "completion_tokens": 500}) == 0.0
+    monkeypatch.setenv("VLLM_API_KEY", "k")
+    assert client_from_config(cfg, PricingTable(currency="CNY", models={})).api_key == "k"

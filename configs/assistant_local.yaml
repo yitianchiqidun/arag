@@ -1,0 +1,27 @@
+# Model replacement (stage 9): the same assistant with the agent served by a local
+# OpenAI-compatible server, e.g. `vllm serve <model> --port 8001` (a future SFT model).
+# `local: true` prices its calls at 0; the key comes from LOCAL_LLM_API_KEY ("EMPTY" if unset).
+# The router stays on the hosted model here; switch it the same way if needed.
+run_config: configs/tidb_docs_qwen37_plus.yaml
+
+router:
+  model: qwen3.7-flash-2026-07-15
+  temperature: 0.0
+  max_tokens: 300
+  enable_thinking: false
+
+agent:
+  model: local-sft-model  # the name the server was started with
+  base_url: http://127.0.0.1:8001/v1
+  api_key_env: LOCAL_LLM_API_KEY
+  local: true
+  temperature: 0.0
+  max_tokens: 4096
+  enable_thinking: null  # do not send the Qwen-specific flag to another server
+
+fast_intents: []
+use_cluster: true
+checkpoint_db: data/assistant/sessions.sqlite
+trace_dir: data/assistant/traces
+audit_file: data/assistant/writes.jsonl
+max_steps: 12

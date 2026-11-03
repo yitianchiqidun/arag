@@ -25,6 +25,10 @@ class LLMConfig(BaseModel):
 
     model: str
     base_url: str | None = None  # falls back to ARAG_BASE_URL
+    # Model replacement (stage 9): another OpenAI-compatible endpoint, e.g. a local vLLM server,
+    # with its own key variable; a local model has no price (its calls cost 0).
+    api_key_env: str = "ARAG_API_KEY"
+    local: bool = False
     temperature: float = 0.0
     max_tokens: int = 16384
     enable_thinking: bool | None = False  # Qwen hybrid models; None = do not send the flag

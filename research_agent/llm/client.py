@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import random
 import threading
 import time
@@ -13,7 +14,7 @@ from pydantic import BaseModel
 
 from arag.core.llm import LLMClient
 from research_agent.config import LLMConfig
-from research_agent.llm.pricing import ModelPricing, PricingTable
+from research_agent.llm.pricing import ModelPricing, PriceTier, PricingTable
 
 RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 # Failures of the account or key rather than of one request: no other question can succeed
@@ -246,10 +247,14 @@ class _Retryable(Exception):
     """Raised internally for retryable HTTP statuses."""
 
 
+FREE = ModelPricing(tiers=[PriceTier(max_input_tokens=None, input=0.0, output=0.0)])
+
+
 def client_from_config(cfg: LLMConfig, pricing: PricingTable) -> MeteredLLMClient:
     return MeteredLLMClient(
         model=cfg.model,
-        pricing=pricing.get(cfg.model),
+        pricing=FREE if cfg.local else pricing.get(cfg.model),
+        api_key=os.getenv(cfg.api_key_env) or ("EMPTY" if cfg.local else None),
         base_url=cfg.resolved_base_url(),
         temperature=cfg.temperature,
         max_tokens=cfg.max_tokens,
