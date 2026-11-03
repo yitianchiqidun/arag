@@ -19,7 +19,11 @@ from typing import Any, Protocol
 from arag import BaseAgent, LLMClient, ToolRegistry
 from arag.tools.read_chunk import ReadChunkTool
 from research_agent.agent.prompt import build_system_prompt, load_upstream_prompt
-from research_agent.agent.tools import build_tool_registry, shared_semantic_tool
+from research_agent.agent.tools import (
+    build_tool_registry,
+    plain_text_tokens,
+    shared_semantic_tool,
+)
 from research_agent.baselines.naive_rag import SYSTEM_PROMPT as NAIVE_SYSTEM_PROMPT
 from research_agent.baselines.naive_rag import ChunkIndex, NaiveRAG
 from research_agent.config import RunConfig
@@ -59,6 +63,10 @@ class RecordingAgent(BaseAgent):
     """BaseAgent that keeps the raw result of the last ``run`` (upstream drops some flags)."""
 
     last_result: dict[str, Any] | None = None
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        plain_text_tokens(self)  # tool results may contain "<|endoftext|>"
 
     def run(self, query: str) -> dict[str, Any]:
         self.last_result = None
@@ -138,6 +146,7 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
         semantic = shared_semantic_tool(cfg.data, cfg.embedding)
         if self._naive_resources is None:
             reader = ReadChunkTool(chunks_file=cfg.data.chunks_file)
+            plain_text_tokens(reader)
             index = ChunkIndex.load_or_build(
                 reader,
                 cfg.data.index_dir,

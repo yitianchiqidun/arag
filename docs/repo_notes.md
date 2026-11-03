@@ -156,3 +156,4 @@ flowchart TD
 6. 切句正则会切断小数和缩写；关键词检索是子串匹配，没有 IDF。这两点可能是 bad case 的来源，阶段 4 验证。
 7. 查询向量和句子向量用同样的方式编码。Qwen3-Embedding 的模型卡建议查询端加指令前缀（`prompt_name="query"`），上游没有加。这是一个低成本的检索改进点，可以留到阶段 5c 和 rerank 一起评估。
 8. `batch_runner` 找不到句子索引时只打印一条警告，然后**静默去掉 semantic_search** 继续跑，完整版会在不知不觉中变成消融版。我们的 `build_tool_registry` 改为直接报错。
+9. （阶段 3 发现）工具和 `BaseAgent` 统计 token 时调用 `tiktoken.encode(text)`，遇到 `<|endoftext|>` 这类特殊 token 的字面文本会直接抛异常，**整道题报错**。基准语料里没有这种文本，但讲分词器和对话模板的技术文档里会出现。我们在包装层把工具、Agent 和普通 RAG 读取器的分词器换成“把特殊 token 当普通文本编码”的版本（`research_agent/agent/tools.py` 的 `PlainTextEncoding`），上游文件不改。复现见 `tests/research_agent/test_ablation.py`。

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -135,3 +136,22 @@ def test_full_chunk_schema_no_longer_points_to_read_chunk(tiny_corpus: dict[str,
         "read_chunk"
         in KeywordSearchTool(str(tiny_corpus["chunks"])).get_schema()["function"]["description"]
     )
+
+
+def test_tools_count_special_token_text_as_plain_text(tmp_path: Path) -> None:
+    # Documentation about tokenizers contains "<|endoftext|>"; plain tiktoken.encode raises.
+    chunks = tmp_path / "chunks.json"
+    chunks.write_text(json.dumps([{"id": "0", "text": "Stop at <|endoftext|> tokens."}]))
+    cfg = RunConfig.model_validate(
+        {
+            "llm": {"model": "m"},
+            "judge": {"model": "m"},
+            "data": {"chunks_file": str(chunks), "index_dir": str(tmp_path)},
+            "agent": {"tools": ["keyword_search", "read_chunk"]},
+        }
+    )
+    registry = build_tool_registry(cfg)
+    text, log = registry.execute("read_chunk", AgentContext(), chunk_ids=["0"])
+    assert "<|endoftext|>" in text and log["retrieved_tokens"] > 0
+    result, log = registry.execute("keyword_search", AgentContext(), keywords=["endoftext"])
+    assert result.startswith("Chunk ID: 0") and log["retrieved_tokens"] > 0

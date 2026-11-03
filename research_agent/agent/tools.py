@@ -32,6 +32,33 @@ _FULL_CHUNK_RETURNS = (
     "Chunks already shown earlier are marked instead of repeated."
 )
 
+
+class PlainTextEncoding:
+    """A tiktoken encoding whose ``encode`` treats special-token text as plain text.
+
+    Upstream tools and BaseAgent count tokens with ``encode(text)``, which raises on text such
+    as ``<|endoftext|>``. The benchmark corpora never contain it, but documentation about
+    tokenizers and chat templates does, and the whole question then fails. Only the token
+    count of such text changes; everything else is delegated to the wrapped encoding.
+    """
+
+    def __init__(self, inner: Any) -> None:
+        self._inner = inner
+
+    def encode(self, text: str, **kwargs: Any) -> list[int]:
+        tokens: list[int] = self._inner.encode(text, disallowed_special=())
+        return tokens
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
+def plain_text_tokens(obj: Any) -> None:
+    """Swap ``obj.tokenizer`` for a :class:`PlainTextEncoding` (idempotent)."""
+    if not isinstance(obj.tokenizer, PlainTextEncoding):
+        obj.tokenizer = PlainTextEncoding(obj.tokenizer)
+
+
 _semantic_cache: dict[tuple[str, str, str, str | None], SemanticSearchTool] = {}
 _semantic_lock = threading.Lock()
 
@@ -51,12 +78,14 @@ def shared_semantic_tool(data: DataConfig, embedding: EmbeddingConfig) -> Semant
                     f"{index_file} not found; build it with scripts/build_index.py "
                     "or remove semantic_search from agent.tools"
                 )
-            _semantic_cache[key] = SemanticSearchTool(
+            tool = SemanticSearchTool(
                 chunks_file=data.chunks_file,
                 index_dir=data.index_dir,
                 model_name=embedding.model,
                 device=embedding.device,  # type: ignore[arg-type]  # upstream: implicit Optional
             )
+            plain_text_tokens(tool)
+            _semantic_cache[key] = tool
         return _semantic_cache[key]
 
 
@@ -146,9 +175,12 @@ def build_tool_registry(cfg: RunConfig) -> ToolRegistry:
     agent, data = cfg.agent, cfg.data
     tools = ToolRegistry()
     reader = ReadChunkTool(chunks_file=data.chunks_file)
+    plain_text_tokens(reader)
     searches: dict[str, BaseTool] = {}
     if "keyword_search" in agent.tools:
-        searches["keyword_search"] = KeywordSearchTool(chunks_file=data.chunks_file)
+        keyword = KeywordSearchTool(chunks_file=data.chunks_file)
+        plain_text_tokens(keyword)
+        searches["keyword_search"] = keyword
     if "semantic_search" in agent.tools:
         searches["semantic_search"] = shared_semantic_tool(data, cfg.embedding)
     if agent.search_result == "full_chunk":
