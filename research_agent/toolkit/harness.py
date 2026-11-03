@@ -132,7 +132,14 @@ class ToolHarness:
                     f"（与本轮第 {n} 次调用相同，没有重复执行，下面是上次的结果；"
                     "请基于已有信息继续或给出结论。）\n" + earlier.text
                 )
-        if out is None and self.calls >= self.budget.max_calls:
+        # A proposal ends the diagnosis, so the call budget never blocks one (it did once in
+        # stage 11: the fix was found and then refused by the budget, D38).
+        if (
+            out is None
+            and spec is not None
+            and spec.permission != "confirm"
+            and self.calls >= self.budget.max_calls
+        ):
             status, out = (
                 "over_budget",
                 ToolOutput(

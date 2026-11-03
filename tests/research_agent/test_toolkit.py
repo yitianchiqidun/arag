@@ -202,3 +202,10 @@ def test_tools_are_exposed_by_intent() -> None:
     assert names["out_of_scope"] == []
     assert "execute_write" not in names["diagnosis"] and len(names["diagnosis"]) == len(SPECS) - 1
     assert ToolHarness(SlowBackend()).schemas("out_of_scope") == []
+
+
+def test_the_call_budget_never_blocks_a_proposal() -> None:
+    harness = ToolHarness(SlowBackend(), budget=TurnBudget(max_calls=1))
+    assert harness.call("lock_waits", {}).text == "lock_waits ok"
+    assert "预算" in harness.call("transactions", {}).text
+    assert harness.call("propose_analyze", {"table": "orders", "reason": "r"}).pending is not None
