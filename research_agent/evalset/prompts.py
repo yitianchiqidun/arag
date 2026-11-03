@@ -35,6 +35,9 @@ PREREVIEW_TEMPLATE = """你在审核一个评测集的候选题。评测集基�
 同一文档上的其他候选题：
 {others}
 
+审核参考：
+{notes}
+
 只回复 JSON：
 {{"decision": "keep|modify|drop", "reasons": [], "explanation": "一两句话", \
 "suggested_question": null, "suggested_answer": null}}"""

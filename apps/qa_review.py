@@ -127,6 +127,9 @@ def checks(cfg: EvalsetConfig, c: Candidate) -> None:
     if c.reject_reason:
         rows.append(f"- 未通过：{c.reject_reason}")
     st.markdown("**自动检查**\n" + ("\n".join(rows) or "（无）"))
+    if c.review_notes:
+        with st.expander("审核参考", expanded=True):
+            st.markdown(c.review_notes)
     if c.origin:
         with st.expander("出题来源"):
             st.code(json.dumps(c.origin, ensure_ascii=False, indent=1), language="json")

@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from research_agent.ingest.loaders import Document
 from research_agent.ingest.markdown import fence_update
@@ -36,13 +36,16 @@ COMPONENT_LABELS: dict[Component, str] = {
 }
 # Bullet keys that hold a fact; the first other bullet of an entry is its description.
 FIELDS = ("默认值", "作用域", "类型", "范围", "取值范围", "可选值", "单位", "最大值", "最小值")
+FIELD_SYNONYMS = {"默认": "默认值"}  # the PD page writes "默认：54" for some items
 META_FIELDS = ("是否持久化到集群", "是否受 Hint SET_VAR 控制")
 
 _HEADING = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*$")
 _BULLET = re.compile(r"^[-+*][ \t]+(.*)$")
 _FIELD = re.compile(r"^(?P<key>[^：:\n]{1,24})[：:][ \t]*(?P<value>.*)$")
 _NAME = re.compile(r"`([^`]+)`")
-_SINCE = re.compile(r"从 (v[\d.]+) 版本开始引入")
+_BARE_NAME = re.compile(r"^([a-z][a-z0-9_]+)\b")  # a system variable heading without backticks
+_SINCE = re.compile(r"从 (v[\d.]+(?:(?:、|和| 和 |, )v[\d.]+)*) 版本开始引入")
+_VERSION = re.compile(r"v\d+\.\d+(?:\.\d+)?")
 _RELEASE_DOC = re.compile(r"releases/release-(\d+\.\d+\.\d+)\.md$")
 # "默认值从 `A` 修改为 `B`"; a value in backticks may contain spaces ("MAX(1, MIN(4, ...))").
 _VALUE = r"(?:`(?P<{0}q>[^`]+)`|(?P<{0}>[^`，。；\s]+))"
@@ -60,8 +63,9 @@ class Entry(BaseModel):
     doc: str
     path: list[str]  # heading path, version marks included
     name: str  # system variable name, or the full configuration key ("log.file.max-size")
-    since: str | None = None  # "v6.4.0" from "从 v6.4.0 版本开始引入"
+    since: list[str] = Field(default_factory=list)  # "从 v7.5.7 和 v8.5.4 版本开始引入"
     bullets: list[str]  # top-level bullets, without the marker
+    body: str = ""  # every line under the heading (notes such as "该配置项被废弃" included)
 
 
 class ParamFact(BaseModel):
@@ -71,7 +75,7 @@ class ParamFact(BaseModel):
     value: str  # as written after the colon
     quote: str  # the bullet line, verbatim from the normalized document
     description: str  # the entry's first non-field bullet (what the parameter does)
-    since: str | None
+    since: list[str]
     doc: str
     path: list[str]
 
@@ -99,6 +103,12 @@ def _section_name(heading: str) -> str:
     return _SINCE.sub("", heading).strip()
 
 
+def since_versions(heading: str) -> list[str]:
+    """Every version of "从 vA、vB 和 vC 版本开始引入" in a heading."""
+    match = _SINCE.search(heading)
+    return _VERSION.findall(match.group(1)) if match else []
+
+
 def parse_entries(doc: Document) -> list[Entry]:
     """Parameter entries: headings that name a parameter in backticks, with their bullets.
 
@@ -116,7 +126,9 @@ def parse_entries(doc: Document) -> list[Entry]:
         if heading:
             level, text = len(heading.group(1)), heading.group(2)
             stack = [(lv, t) for lv, t in stack if lv < level] + [(level, text)]
-            name = _NAME.match(text)
+            name = _NAME.match(text) or (
+                _BARE_NAME.match(text) if is_sysvar and level == 3 else None
+            )
             current = None
             if name and level >= 2:
                 if is_sysvar:
@@ -128,16 +140,17 @@ def parse_entries(doc: Document) -> list[Entry]:
                         if lv >= 2 and not _NAME.match(t) and t != "全局配置"
                     ]
                     key = ".".join([*sections, name.group(1)])
-                since = _SINCE.search(text)
                 current = Entry(
                     doc=doc.path,
                     path=[t for _, t in stack],
                     name=key,
-                    since=since.group(1) if since else None,
+                    since=since_versions(text),
                     bullets=[],
                 )
                 entries.append(current)
             continue
+        if current is not None:
+            current.body += line + "\n"
         bullet = _BULLET.match(line) if fence is None else None
         if current is not None and bullet:
             current.bullets.append(bullet.group(1).strip())
@@ -153,6 +166,7 @@ def param_facts(doc: Document) -> list[ParamFact]:
         for bullet in entry.bullets:
             match = _FIELD.match(bullet)
             key = match.group("key").strip() if match else ""
+            key = FIELD_SYNONYMS.get(key, key)
             if match and key in FIELDS:
                 marker = "-" if component == "system_variable" else "+"
                 fields.append((key, match.group("value").strip(), f"{marker} {bullet}"))

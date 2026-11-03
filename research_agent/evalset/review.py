@@ -120,6 +120,7 @@ def prereview_prompt(
         aliases="、".join(cand.answer_aliases) or "（无）",
         passages=passages_block(passages),
         others="\n".join(f"- {q}" for q in same_doc_questions) or "（无）",
+        notes=cand.review_notes.strip() or "（无）",
     )
 
 

@@ -154,6 +154,8 @@ class Candidate(BaseModel):
     origin: dict[str, Any] = Field(default_factory=dict)  # how the builder made it
     reject_reason: str | None = None  # a builder check failed; kept for the statistics
     cost: float = 0.0  # of building it (an LLM rewrite), not of the checks
+    # Shown to the pre-review and on the review page, e.g. similar parameters to rule out.
+    review_notes: str = ""
 
 
 class Attempt(BaseModel):
