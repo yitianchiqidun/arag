@@ -306,3 +306,20 @@ def test_account_locked_creates_and_drops_the_locked_user(db: FakeDatabase) -> N
         missing_keywords("账号 report 被锁定，需要 ALTER USER ... ACCOUNT UNLOCK", s.keywords())
         == []
     )
+
+
+def test_inject_command(
+    db: FakeDatabase, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from research_agent.diagnosis import inject
+
+    monkeypatch.setattr("research_agent.tidb.db.admin_database", lambda cfg: db)
+    inject.main(["memory_quota"])
+    assert "ERROR 8175" in capsys.readouterr().out
+    inject.main(["memory_quota", "--cleanup"])
+    assert statements(db) == [
+        "SET GLOBAL tidb_mem_quota_query = 1048576",
+        "SET GLOBAL tidb_mem_quota_query = 1073741824",
+    ]
+    with pytest.raises(SystemExit):
+        inject.main(["lock_wait"])
