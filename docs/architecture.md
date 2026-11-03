@@ -60,6 +60,16 @@ flowchart TB
 - **轨迹**：`AssistantApp` 把每个事件和每次文档检索的完整步骤追加到 `data/assistant/traces/<会话>.jsonl`，可以事后复盘。
 - **花费**：每个节点把模型花费累加到状态的 `cost`，随 `answer` 事件返回。
 
+## 服务（阶段 9，D36）
+
+`research_agent/service/app.py`：FastAPI 提供 `POST /chat`、`POST /chat/stream`（SSE）、`POST /chat/confirm`、`GET /sessions/{id}`、`GET /health`。每轮对话由一个工作线程驱动助手的事件生成器，事件经队列交给请求。
+
+- 同一会话同时只允许一轮，总共最多接纳 `MAX_ACTIVE_TURNS` 轮；
+- 诊断循环到 `turn_timeout_s` 自行停止，服务层另有 `REQUEST_TIMEOUT_S` 硬超时；
+- 步数用完时再调用一次模型，根据已有证据给出结论。
+
+演示页设置 `CHAT_DEMO_API_URL` 后通过 HTTP 调用服务（`research_agent/service/client.py`）。
+
 ## 安全边界
 
 | 层 | 措施 |

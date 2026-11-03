@@ -14,3 +14,5 @@
 | 2026-11-02 | `pyproject.toml` | 新增可选依赖组 `viewer`（streamlit） | 阶段 2 的轨迹回放页面需要 Streamlit | 放进 `research` 组：阶段 6 的服务镜像会被迫带上 Streamlit 及其依赖；单独一组按需安装 |
 | 2026-11-03 | `pyproject.toml` | 新增可选依赖组 `tidb`（pymysql、类型桩） | 阶段 5 的 TiDB 运维工具要通过 MySQL 协议连接本地集群 | 放进 `research` 组：评测和检索代码不需要数据库驱动，单独一组按需安装 |
 | 2026-11-03 | `pyproject.toml` | 新增可选依赖组 `agent`（langgraph 1.2.19、checkpoint 4.3.1、checkpoint-sqlite 3.1.3，锁定版本） | 阶段 6 的主 Agent 用 LangGraph 编排，方案要求锁定具体版本 | 放进 `research` 组：评测代码不需要 LangGraph，单独一组按需安装 |
+| 2026-11-03 | `pyproject.toml` | 新增可选依赖组 `service`（fastapi、uvicorn、httpx） | 阶段 9 的 HTTP 服务和演示页的 API 客户端 | 放进 `agent` 组：命令行和评测不需要 Web 框架，单独一组按需安装 |
+| 2026-11-03 | `README.md` → `docs/upstream_README.md` | A-RAG 原 README 原样移到 `docs/`，只把两处图片路径改成相对新位置；仓库首页换成本项目的 README，并在其中说明与 A-RAG 的关系和许可 | 仓库首页需要介绍本项目（阶段 9 交付物）；原 README 仍完整保留 | 在原 README 前面插入本项目的说明：两份内容混在一起，读者分不清哪些是论文作者的工作 |
