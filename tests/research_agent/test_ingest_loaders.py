@@ -73,6 +73,25 @@ def test_normalize_markdown_site_syntax() -> None:
     assert "[提示](/hints.md#a_(b))" in normalize_markdown(lines[5])  # targets kept by default
 
 
+def test_inline_table_tags_do_not_start_a_table() -> None:
+    lines = [
+        "当 `SELECT ... FOR UPDATE OF <table>` 引用表别名时报错。",
+        "",
+        "## 兼容性变更",
+        "<table>",
+        "没有结束标签的表格，后面的正文必须保留",
+        "## 系统变量",
+    ]
+    assert normalize_markdown("\n".join(lines)).splitlines() == [
+        "当 `SELECT ... FOR UPDATE OF <table>` 引用表别名时报错。",
+        "",
+        "## 兼容性变更",
+        "<table>",  # not a table without "</table>": left as it is
+        "没有结束标签的表格，后面的正文必须保留",
+        "## 系统变量",
+    ]
+
+
 def test_split_front_matter() -> None:
     meta, body = split_front_matter("---\ntitle: 安装\nsummary: 简介\n---\n# 安装\n")
     assert meta == {"title": "安装", "summary": "简介"} and body == "# 安装\n"

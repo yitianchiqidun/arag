@@ -45,7 +45,8 @@ HTML_TAG = re.compile(
     r"|iframe|video|a|b|i|strong|em|kbd)\b[^>]*>",
     re.IGNORECASE,
 )
-TABLE_START = re.compile(r"<table\b", re.IGNORECASE)
+# An HTML table block starts a line; "`... OF <table>`" in running text is not one.
+TABLE_START = re.compile(r"^[ \t]*<table\b", re.IGNORECASE)
 TABLE_END = re.compile(r"</table\s*>", re.IGNORECASE)
 ROW = re.compile(r"<tr\b[^>]*>(.*?)</tr\s*>", re.IGNORECASE | re.DOTALL)
 CELL = re.compile(r"<t[hd]\b[^>]*>(.*?)</t[hd]\s*>", re.IGNORECASE | re.DOTALL)
@@ -110,7 +111,8 @@ def normalize_markdown(text: str, link_targets: bool = True) -> str:
     out: list[str] = []
     fence: str | None = None
     table: list[str] | None = None  # lines of an HTML table being collected
-    for line in text.splitlines():
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
         if table is not None:
             table.append(line)
             if TABLE_END.search(line):
@@ -118,7 +120,7 @@ def normalize_markdown(text: str, link_targets: bool = True) -> str:
                 table = None
             continue
         if fence is None:
-            if TABLE_START.search(line):
+            if TABLE_START.search(line) and any(TABLE_END.search(x) for x in lines[i:]):
                 table = [line]
                 if TABLE_END.search(line):
                     out += ["", html_table_to_text(line), ""]
@@ -127,6 +129,4 @@ def normalize_markdown(text: str, link_targets: bool = True) -> str:
             line = _clean_line(line, link_targets)
         out.append(line)
         fence = fence_update(line, fence)
-    if table is not None:  # unterminated table: keep its text rather than lose it
-        out.append(html_table_to_text("\n".join(table)))
     return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip() + "\n"
