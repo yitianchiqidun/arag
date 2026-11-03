@@ -24,7 +24,7 @@ from research_agent.eval.summarize import (
     to_csv_row,
 )
 
-VARIANT_KEYS = ("method", "agent.tools", "agent.search_result", "naive_rag.")
+VARIANT_KEYS = ("method", "agent.tools", "agent.search_result", "naive_rag.", "routing.")
 
 
 class ComparedRun(BaseModel):

@@ -1,0 +1,35 @@
+# Stage 7: intent routing vs all A-RAG on the TiDB evalset (D32). The router is the
+# assistant's (qwen3.7-flash, research_agent/assistant/routing.py); param_lookup questions go
+# to Naive RAG (asked to cite, D29), the rest to A-RAG. The A-RAG and Naive RAG rows reuse
+# the stage 4 runs (same model and parameters), restricted to the 126 questions.
+#
+#   python -m research_agent.eval suite configs/suites/stage7_routing.yaml --max-cost 3
+name: stage7_routing
+description: route parameter questions to the fast channel, everything else to A-RAG
+base_config: configs/tidb_docs_qwen37_plus.yaml
+questions: evalsets/tidb/questions.json
+output_root: results/stage7/routing
+reference: arag_full
+
+variants:
+  - name: routed
+    description: router (qwen3.7-flash) -> param_lookup to Naive RAG, the rest to A-RAG
+    overrides:
+      method: routed
+      naive_rag: {cite_chunks: true}
+      routing:
+        router:
+          model: qwen3.7-flash-2026-07-15
+          temperature: 0.0
+          max_tokens: 300
+          enable_thinking: false
+        fast_intents: [param_lookup]
+
+  - name: arag_full
+    description: A-RAG for every question (stage 4)
+    run_dir: results/stage4/tidb_baseline_126/arag_full
+
+  - name: naive_rag
+    description: Naive RAG for every question, asked to cite (stage 4)
+    overrides: {method: naive_rag, naive_rag: {cite_chunks: true}}
+    run_dir: results/stage4/tidb_baseline_126/naive_rag

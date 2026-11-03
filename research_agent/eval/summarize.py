@@ -54,6 +54,12 @@ class RunSummary(BaseModel):
     judge_cost: float
     # None when the run's chunks file is not available locally.
     citations: CitationStats | None = None
+    # method routed: questions and LLM-Acc per channel, channels per question type, and the
+    # router's share of agent_cost.
+    n_by_channel: dict[str, int] = {}
+    llm_acc_by_channel: dict[str, float] = {}
+    channel_by_group: dict[str, dict[str, int]] = {}
+    route_cost: float = 0.0
 
     @property
     def total_cost(self) -> float:
@@ -113,6 +119,12 @@ def summarize_run(run_dir: str | Path) -> RunSummary:
         if group:
             by_hop[group].append(float(r["llm_accuracy"]))
     termination = Counter(r.get("termination", "unknown") for r in records)
+    by_channel: defaultdict[str, list[float]] = defaultdict(list)
+    channel_by_group: defaultdict[str, Counter[str]] = defaultdict(Counter)
+    for r in records:
+        if r.get("channel"):
+            by_channel[r["channel"]].append(float(r["llm_accuracy"]))
+            channel_by_group[hop_group(str(r.get("qid", ""))) or "all"][r["channel"]] += 1
     chunks_file = run_meta.get("config", {}).get("data", {}).get("chunks_file")
     citations = None
     if chunks_file and Path(chunks_file).exists():
@@ -161,6 +173,10 @@ def summarize_run(run_dir: str | Path) -> RunSummary:
         agent_cost=sum(float(r.get("total_cost", 0) or 0) for r in records),
         judge_cost=float(judge_meta["usage"]["cost"]),
         citations=citations,
+        n_by_channel={k: len(v) for k, v in sorted(by_channel.items())},
+        llm_acc_by_channel={k: sum(v) / len(v) for k, v in sorted(by_channel.items())},
+        channel_by_group={k: dict(sorted(v.items())) for k, v in sorted(channel_by_group.items())},
+        route_cost=sum(float(r.get("route_cost", 0) or 0) for r in records),
     )
 
 
@@ -175,6 +191,21 @@ def _citations(c: CitationStats | None) -> str:
     if c.evidence_n:
         text += f"; answers citing a gold evidence chunk {_rate(c.evidence_cited)}"
     return text
+
+
+def _channel_rows(s: RunSummary) -> list[tuple[str, str]]:
+    if not s.n_by_channel:
+        return []
+    acc = ", ".join(f"{k} {s.n_by_channel[k]} ({v:.1%})" for k, v in s.llm_acc_by_channel.items())
+    groups = "; ".join(
+        f"{g}: " + ", ".join(f"{k} {n}" for k, n in c.items())
+        for g, c in s.channel_by_group.items()
+    )
+    return [
+        ("Channels: questions (LLM-Acc)", acc),
+        ("Channels by question type", groups),
+        (f"Router cost ({s.currency}, included in agent cost)", f"{s.route_cost:.4f}"),
+    ]
 
 
 def to_markdown(s: RunSummary) -> str:
@@ -208,6 +239,7 @@ def to_markdown(s: RunSummary) -> str:
             "Answers citing a chunk / citations read in full / citations never shown",
             _citations(s.citations),
         ),
+        *_channel_rows(s),
         (
             f"Cost ({s.currency}) agent + judge = total",
             f"{s.agent_cost:.3f} + {s.judge_cost:.3f} = {s.total_cost:.3f}",

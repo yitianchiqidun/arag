@@ -103,3 +103,26 @@ def test_judge_records_raw_replies(
 def test_summarize_requires_judged_predictions(run_dir: Path) -> None:
     with pytest.raises(ValueError, match="judge"):
         summarize_run(run_dir)
+
+
+def test_summary_reports_the_channels_of_a_routed_run(tmp_path: Path) -> None:
+    preds = [
+        prediction("t__direct__d1", "x", "x", channel="naive_rag", route_cost=0.001),
+        prediction("t__direct__d2", "x", "y", channel="naive_rag", route_cost=0.001),
+        prediction("t__version__v1", "x", "x", channel="arag", route_cost=0.001),
+    ]
+    for p, ok in zip(preds, [1.0, 0.0, 1.0], strict=True):
+        p.update(llm_accuracy=ok, contain_accuracy=int(ok), status="answered")
+    (tmp_path / "predictions.jsonl").write_text("\n".join(json.dumps(p) for p in preds) + "\n")
+    (tmp_path / "run_meta.json").write_text(json.dumps({"llm_snapshot": "m-1", "currency": "CNY"}))
+    (tmp_path / "judge_meta.json").write_text(
+        json.dumps({"judge_snapshot": "j", "usage": {"cost": 0.0}})
+    )
+
+    summary = summarize_run(tmp_path)
+
+    assert summary.n_by_channel == {"arag": 1, "naive_rag": 2}
+    assert summary.llm_acc_by_channel == {"arag": 1.0, "naive_rag": 0.5}
+    assert summary.channel_by_group == {"direct": {"naive_rag": 2}, "version": {"arag": 1}}
+    assert summary.route_cost == pytest.approx(0.003)
+    assert "naive_rag 2 (50.0%)" in to_markdown(summary)

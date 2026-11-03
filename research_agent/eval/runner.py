@@ -3,6 +3,9 @@
 Upstream ``scripts/batch_runner.py`` records answers, cost and the tool trajectory, but not
 token counts, latency or why the loop stopped. ``MeteredBatchRunner`` subclasses it and only
 swaps the tool set, system prompt, LLM client and agent class, and enriches each record.
+
+``method: routed`` (stage 7) runs the assistant's intent router first and answers with Naive
+RAG or A-RAG depending on the intent (:class:`RoutedAgent`).
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from research_agent.agent.tools import (
     plain_text_tokens,
     shared_semantic_tool,
 )
+from research_agent.assistant.routing import Channel, Route, channel_for, classify
 from research_agent.baselines.naive_rag import SYSTEM_PROMPT as NAIVE_SYSTEM_PROMPT
 from research_agent.baselines.naive_rag import ChunkIndex, NaiveRAG
 from research_agent.config import RunConfig
@@ -107,6 +111,50 @@ class RecordingAgent(BaseAgent):
         return result
 
 
+class RoutedAgent:
+    """Classifies the question with the assistant's router, then answers with the channel
+    chosen for its intent.
+
+    Both channels share one metered client (same model), so the runner's usage, tokens and
+    trace describe whichever channel answered. The router has its own client (a smaller
+    model); its cost is added to the question's ``total_cost`` and recorded separately.
+    """
+
+    def __init__(
+        self,
+        router: MeteredLLMClient,
+        fast: NaiveRAG,
+        thorough: RecordingAgent,
+        recorder: TraceRecorder,
+        fast_intents: list[str],
+    ) -> None:
+        self.router = router
+        self.fast = fast
+        self.thorough = thorough
+        self.recorder = recorder
+        self.fast_intents = fast_intents
+        self.route: Route | None = None
+        self.channel: Channel | None = None
+        self.last_result: dict[str, Any] | None = None
+
+    @property
+    def llm(self) -> LLMClient:
+        return self.thorough.llm
+
+    def run(self, query: str) -> dict[str, Any]:
+        self.last_result = None
+        self.route = classify(self.router, query)
+        self.channel = channel_for(self.route.intent, self.fast_intents)
+        self.recorder.agent_has_tools = self.channel == "arag"
+        agent: NaiveRAG | RecordingAgent = (
+            self.fast if self.channel == "naive_rag" else self.thorough
+        )
+        result = dict(agent.run(query))
+        result["total_cost"] = float(result.get("total_cost") or 0.0) + self.route.cost
+        self.last_result = result
+        return result
+
+
 def termination_reason(result: dict[str, Any] | None, usage: UsageSummary) -> str:
     """Why the agent loop ended.
 
@@ -174,7 +222,7 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
             return ToolRegistry()
         return build_tool_registry(self.run_config)
 
-    def _naive_rag(self) -> NaiveRAG:
+    def _naive_rag(self, llm: MeteredLLMClient | None = None) -> NaiveRAG:
         cfg = self.run_config
         # Reuse the semantic_search model: a second copy would not fit next to it on 6 GB.
         semantic = shared_semantic_tool(cfg.data, cfg.embedding)
@@ -192,7 +240,7 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
             self._naive_resources = (index, reader)
         index, reader = self._naive_resources
         return NaiveRAG(
-            llm_client=client_from_config(cfg.llm, self.pricing),
+            llm_client=llm or client_from_config(cfg.llm, self.pricing),
             index=index,
             reader=reader,
             embedding_model=semantic.embedding_model,
@@ -204,20 +252,32 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
     def _create_agent(self) -> MeteredAgent:
         # Upstream creates every agent in the main thread before submitting the questions,
         # so the recorder map is only written here and read by the worker that owns the agent.
+        cfg = self.run_config
         agent: MeteredAgent
-        if self.run_config.method == "naive_rag":
+        if cfg.method == "naive_rag":
             recorder = TraceRecorder(agent_has_tools=False)
             agent = self._naive_rag()
         else:
             recorder = TraceRecorder(agent_has_tools=True)
-            agent = RecordingAgent(
-                llm_client=client_from_config(self.run_config.llm, self.pricing),
+            llm = client_from_config(cfg.llm, self.pricing)
+            thorough = RecordingAgent(
+                llm_client=llm,
                 tools=TimedToolRegistry(self._shared_tools, recorder),
                 system_prompt=self._system_prompt,
-                max_loops=self.run_config.agent.max_loops,
-                max_token_budget=self.run_config.agent.max_token_budget,
+                max_loops=cfg.agent.max_loops,
+                max_token_budget=cfg.agent.max_token_budget,
                 verbose=False,
             )
+            agent = thorough
+            if cfg.method == "routed":
+                assert cfg.routing.router is not None
+                agent = RoutedAgent(
+                    client_from_config(cfg.routing.router, self.pricing),
+                    self._naive_rag(llm),
+                    thorough,
+                    recorder,
+                    cfg.routing.fast_intents,
+                )
         assert isinstance(agent.llm, MeteredLLMClient)
         agent.llm.observer = recorder.on_llm_call
         self._recorders[agent] = recorder
@@ -249,6 +309,14 @@ class MeteredBatchRunner(_BatchRunner):  # type: ignore[misc, valid-type]
             llm_errors=[r.error for r in agent.llm.records if r.error],
             citations=[c.model_dump() for c in record_citations(record, self._chunk_refs)],
         )
+        if isinstance(agent, RoutedAgent) and agent.route is not None:
+            record.update(
+                intent=agent.route.intent,
+                route_reason=agent.route.reason,
+                channel=agent.channel,
+                route_cost=agent.route.cost,
+                route_latency_s=agent.route.latency_s,
+            )
         if item.get("evidence_chunks"):  # built evalsets carry their gold evidence
             record["evidence_chunks"] = list(item["evidence_chunks"])
         trajectory = self._recorders.pop(agent).build(

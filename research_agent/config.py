@@ -88,6 +88,16 @@ class NaiveRAGConfig(BaseModel):
     cite_chunks: bool = False
 
 
+class RoutingConfig(BaseModel):
+    """``method: routed``: a small model classifies the intent (the assistant's router), then
+    ``fast_intents`` go to Naive RAG and the rest to A-RAG (stage 7, D32)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    router: LLMConfig | None = None
+    fast_intents: list[str] = ["param_lookup"]
+
+
 class DataConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -101,14 +111,21 @@ class DataConfig(BaseModel):
 class RunConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    method: Literal["arag", "naive_rag"] = "arag"
+    method: Literal["arag", "naive_rag", "routed"] = "arag"
     llm: LLMConfig
     judge: LLMConfig
     embedding: EmbeddingConfig = EmbeddingConfig()
     agent: AgentConfig = AgentConfig()
     naive_rag: NaiveRAGConfig = NaiveRAGConfig()
+    routing: RoutingConfig = RoutingConfig()
     data: DataConfig
     pricing_file: str = "configs/pricing_bailian.yaml"
+
+    @model_validator(mode="after")
+    def _check_routing(self) -> RunConfig:
+        if self.method == "routed" and self.routing.router is None:
+            raise ValueError("method routed needs routing.router (the intent classifier's model)")
+        return self
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> RunConfig:
