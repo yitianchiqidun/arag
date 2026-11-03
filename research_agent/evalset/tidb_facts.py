@@ -44,8 +44,13 @@ _FIELD = re.compile(r"^(?P<key>[^：:\n]{1,24})[：:][ \t]*(?P<value>.*)$")
 _NAME = re.compile(r"`([^`]+)`")
 _SINCE = re.compile(r"从 (v[\d.]+) 版本开始引入")
 _RELEASE_DOC = re.compile(r"releases/release-(\d+\.\d+\.\d+)\.md$")
+# "默认值从 `A` 修改为 `B`"; a value in backticks may contain spaces ("MAX(1, MIN(4, ...))").
+_VALUE = r"(?:`(?P<{0}q>[^`]+)`|(?P<{0}>[^`，。；\s]+))"
 _DEFAULT_CHANGE = re.compile(
-    r"默认值(?:由原来的|从)\s*`?(?P<old>[^`，。；\s]+)`?\s*(?:修改|变更|改)为\s*`?(?P<new>[^`，。；\s]+)`?"
+    r"默认值(?:由原来的|从)\s*"
+    + _VALUE.format("old")
+    + r"\s*(?:修改|变更|改)为\s*"
+    + _VALUE.format("new")
 )
 
 
@@ -211,20 +216,24 @@ def release_changes(doc: Document) -> list[ReleaseChange]:
             component, name_cell, change, description = cells[0], cells[1], cells[2], cells[3]
         else:
             continue
-        name = _NAME.search(name_cell)
+        # A cell may list several names ("`a`；`b`"): one change per name, same row.
+        names = _NAME.findall(name_cell) or [_clean(name_cell)]
         default = _DEFAULT_CHANGE.search(description)
-        changes.append(
+        old = (default.group("oldq") or default.group("old")) if default else None
+        new = (default.group("newq") or default.group("new")) if default else None
+        changes.extend(
             ReleaseChange(
                 version=version,
                 doc=doc.path,
                 table=table,
                 component=component,
-                name=name.group(1) if name else _clean(name_cell),
+                name=name,
                 change=change,
                 description=description,
                 quote=line.strip(),
-                old_default=_clean(default.group("old")) if default else None,
-                new_default=_clean(default.group("new")) if default else None,
+                old_default=old.strip() if old else None,
+                new_default=new.strip() if new else None,
             )
+            for name in names
         )
     return changes

@@ -5,6 +5,7 @@ import hashlib
 from research_agent.evalset.tidb_facts import param_facts, parse_entries, release_changes
 from research_agent.evalset.tidb_questions import (
     clean_value,
+    locate_chunk,
     param_question,
     seeded_sample,
     split_aliases,
@@ -112,6 +113,8 @@ RELEASE = doc(
 | 配置文件或组件 | 配置项 | 修改类型 | 描述 |
 |--------|----------|------|------|
 | TiKV | `raft-client-queue-size` | 修改 | 默认值从 `8192` 修改为 `16384`。 |
+| TiKV | `grpc-conn` | 修改 | 默认值从 `1` 修改为 `MAX(1, MIN(4, CPU 核数 / 8))`。 |
+| TiKV | `old-a`；`old-b` | 废弃 | 由新配置组替代。 |
 | TiKV | `rocksdb.defaultcf \\| rocksdb.writecf` | 修改 | 默认值从 `a` 修改为 `b`。 |
 | TiFlash | `flash.x` | 新增 | 不在子集里的组件。 |
 
@@ -173,6 +176,8 @@ def test_clean_value_and_aliases() -> None:
     assert clean_value("在 v7.0.0 之前为 `OFF`") is None
     assert clean_value('""') is None and clean_value("与 `x` 相同") is None
     assert split_aliases("300") == ("300", [])
+    assert clean_value("`168h`，即 7 天") == "168h (7 天)"
+    assert split_aliases("168h (7 天)") == ("168h (7 天)", ["168h", "7 天"])
 
 
 def test_release_changes_and_questions() -> None:
@@ -182,22 +187,52 @@ def test_release_changes_and_questions() -> None:
         "scan_conc",
         "new_var",
         "raft-client-queue-size",
+        "grpc-conn",
+        "old-a",
+        "old-b",
         "rocksdb.defaultcf | rocksdb.writecf",
         "flash.x",
     ]
     assert (changes[0].old_default, changes[0].new_default) == ("OFF", "ON")
     assert changes[3].component == "TiKV" and changes[3].version == "v8.5.0"
+    assert changes[4].new_default == "MAX(1, MIN(4, CPU 核数 / 8))"  # backticks keep spaces
+    assert changes[5].quote == changes[6].quote  # one row, two names
     qs = [q for c in unique_changes(changes) if (q := version_question(c))]
-    assert [q.rule for q in qs] == ["release:修改", "release:新增", "release:修改", "release:修改"]
+    assert [q.rule for q in qs] == [
+        "release:修改",
+        "release:新增",
+        "release:修改",
+        "release:修改",
+        "release:废弃",
+        "release:废弃",
+        "release:修改",
+    ]
     fast = qs[0]
-    assert fast.question == (
-        "从 v8.1 升级到最新的 v8.5 版本后，TiDB 系统变量 `fast_create` 的默认值发生了什么变化？"
-    )
+    assert fast.question == "与 v8.1 相比，v8.5 中 TiDB 系统变量 `fast_create` 的默认值有什么变化？"
     assert fast.answer == "v8.5.0 起默认值从 OFF 改为 ON"
     assert qs[1].answer == "v8.5.0" and qs[1].answer_aliases == ["8.5.0"]
-    assert (
-        qs[2].question.startswith("从 v8.1")
-        and "TiKV 配置项 `raft-client-queue-size`" in qs[2].question
-    )
+    assert "TiKV 配置项 `raft-client-queue-size`" in qs[2].question
     assert not any("flash.x" in q.question for q in qs)  # TiFlash is outside the subset
     assert seeded_sample(qs, 2, seed=1) == seeded_sample(list(reversed(qs)), 2, seed=1)
+    # One question per release-notes row: "old-a" and "old-b" share a row.
+    picked = seeded_sample(qs, 10, seed=1)
+    assert len(picked) == 6 and len({q.source for q in picked}) == 6
+    first = picked[0].source
+    assert all(q.source != first for q in seeded_sample(qs, 10, seed=1, exclude={first}))
+
+
+def test_locate_chunk_uses_the_entry_heading() -> None:
+    scope = next(f for f in param_facts(SYSVARS) if f.name == "mem_quota" and f.field == "作用域")
+    draft = param_question(scope)
+    assert draft is not None and draft.anchor == "`mem_quota` 从 v6.1.0 版本开始引入"
+    line = "- 作用域：SESSION | GLOBAL"
+    heading = "### `mem_quota` 从 v6.1.0 版本开始引入"
+    header = "[system-variables.md] 系统变量 > `mem_quota` 从 v6.1.0 版本开始引入"
+    other = {"id": "0", "doc": "system-variables.md", "text": f"### `x`\n\n{line}"}
+    # The header line also names the entry; the quote must follow the heading in the body.
+    own = {"id": "1", "doc": "system-variables.md", "text": f"{header}\n\n{heading}\n\n{line}"}
+    assert locate_chunk([other, own], draft) == "1"
+    # An entry continued from the previous chunk: found through the chunk's sections.
+    rest = {"id": "2", "doc": "system-variables.md", "text": line, "sections": [[heading[4:]]]}
+    assert locate_chunk([other, rest], draft) == "2"
+    assert locate_chunk([other], draft) is None

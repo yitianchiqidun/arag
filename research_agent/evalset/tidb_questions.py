@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import random
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -38,7 +38,8 @@ FIELD_TEMPLATES = {
     "范围": "{label} `{name}` 的取值范围是什么？",
 }
 CHANGE_TEMPLATES = {
-    "修改": "从 v8.1 升级到最新的 v8.5 版本后，{label} `{name}` 的默认值发生了什么变化？",
+    # Compares the defaults of the two versions: an upgraded cluster may keep its old value.
+    "修改": "与 v8.1 相比，v8.5 中 {label} `{name}` 的默认值有什么变化？",
     "新增": "{label} `{name}` 是在 TiDB 哪个版本新增的？",
     "废弃": "{label} `{name}` 是在 TiDB 哪个版本被废弃的？",
     "删除": "{label} `{name}` 是在 TiDB 哪个版本被删除的？",
@@ -54,13 +55,22 @@ class DraftQuestion(BaseModel):
     answer_aliases: list[str] = Field(default_factory=list)
     doc: str
     quote: str  # evidence, verbatim from the normalized document
+    anchor: str | None = None  # the entry's heading, to find the chunk of a common quote
+    source: str  # one question per source: the parameter, or the release-notes row
     rule: str  # which template / field produced it
     fact: dict[str, object]  # the extracted fact, for the review page
 
 
 def clean_value(value: str) -> str | None:
-    """The current value as a short answer, or None when it cannot be one."""
+    """The current value as a short answer, or None when it cannot be one.
+
+    Only the first sentence counts; "`168h`，即 7 天" becomes "168h (7 天)" so the
+    explanation is accepted as an alias.
+    """
     main = value.split("。")[0].strip().rstrip("，,；;").replace("`", "").strip()
+    if "，即" in main:
+        head, _, tail = main.partition("，即")
+        main = f"{head.strip()} ({tail.strip()})"
     if not main or _VERSIONED.search(main):
         return None
     if len(main) > 40 or main in ('""', "''", "空") or re.search(r"与 .+ 相同|参考|详见", main):
@@ -97,6 +107,8 @@ def param_question(fact: ParamFact) -> DraftQuestion | None:
         answer_aliases=aliases,
         doc=fact.doc,
         quote=fact.quote,
+        anchor=fact.path[-1],
+        source=f"{fact.doc}#{fact.name}",
         rule=f"param:{fact.field}",
         fact=fact.model_dump(),
     )
@@ -136,6 +148,7 @@ def version_question(change: ReleaseChange) -> DraftQuestion | None:
         answer_aliases=aliases,
         doc=change.doc,
         quote=change.quote,
+        source=change.quote,
         rule=f"release:{change.change}",
         fact=change.model_dump(),
     )
@@ -150,9 +163,42 @@ def unique_changes(changes: list[ReleaseChange]) -> list[ReleaseChange]:
     return [c for c in changes if counts[(c.table, c.name, c.change)] == 1]
 
 
-def seeded_sample(items: list[DraftQuestion], n: int, seed: int) -> list[DraftQuestion]:
-    """``n`` items chosen by a seeded shuffle of the items sorted by question text."""
+def seeded_sample(
+    items: list[DraftQuestion], n: int, seed: int, exclude: set[str] | None = None
+) -> list[DraftQuestion]:
+    """``n`` items from a seeded shuffle of the items sorted by question text, at most one per
+    source (a parameter, a release-notes row) and none from ``exclude``."""
     ordered = sorted(items, key=lambda q: q.question)
-    rng = random.Random(seed)
-    rng.shuffle(ordered)
-    return ordered[:n]
+    random.Random(seed).shuffle(ordered)
+    seen = set(exclude or ())
+    picked: list[DraftQuestion] = []
+    for q in ordered:
+        if q.source not in seen and len(picked) < n:
+            picked.append(q)
+            seen.add(q.source)
+    return picked
+
+
+def locate_chunk(chunks: list[dict[str, Any]], q: DraftQuestion) -> str | None:
+    """Id of the chunk that holds the evidence.
+
+    A release-notes row is unique. A parameter bullet such as "- 默认值：`OFF`" is not, so
+    the quote must follow the entry's own heading line in the chunk body; if the entry was
+    split across chunks, the chunk whose sections include the entry and whose text has the
+    quote is taken.
+    """
+    candidates = [c for c in chunks if c["doc"] == q.doc and q.quote in str(c["text"])]
+    if q.anchor is None:
+        return str(candidates[0]["id"]) if candidates else None
+    heading = re.compile(rf"^#+[ \t]+{re.escape(q.anchor)}[ \t]*$", re.MULTILINE)
+    for chunk in candidates:
+        text = str(chunk["text"])
+        match = heading.search(text)
+        if match:
+            nxt = text.find("\n#", match.end())
+            if q.quote in text[match.end() : nxt if nxt >= 0 else len(text)]:
+                return str(chunk["id"])
+    for chunk in candidates:
+        if any(path and path[-1] == q.anchor for path in chunk.get("sections", [])):
+            return str(chunk["id"])
+    return None
