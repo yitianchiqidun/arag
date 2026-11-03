@@ -84,12 +84,27 @@ class GitSource:
         return {"kind": "git", "ref": self.ref, "commit": self.commit}
 
 
-def clone_or_fetch(url: str, dest: str | Path) -> None:
-    """Blobless clone of ``url`` into ``dest``, or fetch new commits and tags if it exists."""
+def clone_or_fetch(url: str, dest: str | Path, branches: list[str] | None = None) -> None:
+    """Blobless clone of ``url`` into ``dest``, or fetch new commits and tags if it exists.
+
+    With ``branches``, only the latest commit of each is fetched (``--depth 1``), as
+    ``origin/<branch>``: enough to read the files of those versions, without the history.
+    """
     dest = Path(dest)
-    if (dest / ".git").exists() or (dest / "HEAD").exists():
-        cmd = ["git", "-C", str(dest), "fetch", "--tags", "origin"]
-    else:
+    exists = (dest / ".git").exists() or (dest / "HEAD").exists()
+    if not branches:
+        if exists:
+            cmd = ["git", "-C", str(dest), "fetch", "--tags", "origin"]
+        else:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            cmd = ["git", "clone", "--filter=blob:none", "--no-checkout", url, str(dest)]
+        subprocess.run(cmd, check=True)
+        return
+    if not exists:
         dest.parent.mkdir(parents=True, exist_ok=True)
-        cmd = ["git", "clone", "--filter=blob:none", "--no-checkout", url, str(dest)]
-    subprocess.run(cmd, check=True)
+        clone = ["git", "clone", "--filter=blob:none", "--no-checkout", "--depth", "1"]
+        subprocess.run([*clone, "--branch", branches[0], url, str(dest)], check=True)
+    for branch in branches:
+        refspec = f"+refs/heads/{branch}:refs/remotes/origin/{branch}"
+        fetch = ["git", "-C", str(dest), "fetch", "--depth", "1", "--filter=blob:none"]
+        subprocess.run([*fetch, "origin", refspec], check=True)

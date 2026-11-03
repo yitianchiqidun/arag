@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from research_agent.config import EmbeddingConfig
 from research_agent.ingest.chunker import ChunkerConfig, tiktoken_counter
@@ -27,6 +27,8 @@ class CorpusConfig(BaseModel):
     # Either a git repository (read at a ref given on the command line) or a directory.
     repo_url: str | None = None
     repo_dir: str | None = None
+    # Fetch only the latest commit of these branches (read as ``origin/<branch>``).
+    branches: list[str] = Field(default_factory=list)
     root_dir: str | None = None
     loader: LoaderConfig
     chunker: ChunkerConfig = ChunkerConfig()

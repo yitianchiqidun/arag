@@ -20,6 +20,8 @@ class LoaderConfig(BaseModel):
     # fnmatch patterns on source-relative paths; ``*`` also matches ``/``.
     include: list[str] = Field(min_length=1)
     exclude: list[str] = Field(default_factory=list)
+    # False keeps only the text of links (markdown.normalize_markdown).
+    link_targets: bool = True
 
 
 class Document(BaseModel):
@@ -56,12 +58,12 @@ def _first_heading(text: str) -> str | None:
     return match.group(1) if match else None
 
 
-def load_document(source: CorpusSource, path: str) -> Document | None:
+def load_document(source: CorpusSource, path: str, link_targets: bool = True) -> Document | None:
     """One normalized document; ``None`` for a file that is not Markdown."""
     if not path.lower().endswith(MARKDOWN_SUFFIXES):
         return None
     meta, body = split_front_matter(source.read_text(path))
-    text = normalize_markdown(body)
+    text = normalize_markdown(body, link_targets=link_targets)
     meta_title = meta.get("title")
     title = str(meta_title) if meta_title else _first_heading(text)
     return Document(
@@ -78,7 +80,7 @@ def load_corpus(source: CorpusSource, cfg: LoaderConfig) -> tuple[list[Document]
     report = LoadReport(files=len(files), selected=len(selected), excluded=excluded)
     docs: list[Document] = []
     for path in selected:
-        doc = load_document(source, path)
+        doc = load_document(source, path, cfg.link_targets)
         if doc is None:
             report.unsupported.append(path)
         elif not doc.text.strip():

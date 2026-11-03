@@ -24,7 +24,7 @@ def cmd_fetch(args: argparse.Namespace) -> None:
     cfg = CorpusConfig.from_yaml(args.config)
     if cfg.repo_url is None or cfg.repo_dir is None:
         raise SystemExit(f"corpus {cfg.name} has no repo_url/repo_dir to fetch")
-    clone_or_fetch(cfg.repo_url, cfg.repo_dir)
+    clone_or_fetch(cfg.repo_url, cfg.repo_dir, cfg.branches)
 
 
 def cmd_inspect(args: argparse.Namespace) -> None:

@@ -7,7 +7,7 @@ import pytest
 
 from research_agent.ingest.loaders import LoaderConfig, load_corpus, select_files
 from research_agent.ingest.markdown import normalize_markdown, split_front_matter
-from research_agent.ingest.sources import DirectorySource, GitSource
+from research_agent.ingest.sources import DirectorySource, GitSource, clone_or_fetch
 
 
 def test_normalize_markdown() -> None:
@@ -32,6 +32,47 @@ def test_normalize_markdown() -> None:
     ]
 
 
+def test_normalize_markdown_site_syntax() -> None:
+    lines = [
+        '### `mem_quota` <span class="version-mark">从 v6.1.0 版本开始引入</span>',
+        "",
+        '{{< copyable "sql" >}}',
+        "",
+        "<EmailSubscriptionWrapper />",
+        "参见 [`KILL [TIDB]`](/sql-statements/kill.md) 与 [提示](/hints.md#a_(b))。",
+        "",
+        "| 配置项 | 说明 |",
+        "| --- | --- |",
+        "| <ul><li>`a`</li><li>`b`</li></ul> | <code>x</code> |",
+        "",
+        "<table>",
+        "<tr><th>分类</th><th>功能</th></tr>",
+        '<tr><td rowspan="2">性能</td><td>包括：<ul><li>甲</li><li>乙 &amp; 丙</li></ul></td></tr>',
+        "</table>",
+        "```toml",
+        "# 见[官方格式](https://example.com)，<host>:<port>",
+        "```",
+    ]
+    assert normalize_markdown("\n".join(lines), link_targets=False).splitlines() == [
+        "### `mem_quota` 从 v6.1.0 版本开始引入",
+        "",
+        "参见 `KILL [TIDB]` 与 提示。",
+        "",
+        "| 配置项 | 说明 |",
+        "| --- | --- |",
+        "| `a`；`b` | `x` |",
+        "",
+        "分类 | 功能",
+        "",
+        "性能 | 包括：甲；乙 & 丙",
+        "",
+        "```toml",
+        "# 见[官方格式](https://example.com)，<host>:<port>",
+        "```",
+    ]
+    assert "[提示](/hints.md#a_(b))" in normalize_markdown(lines[5])  # targets kept by default
+
+
 def test_split_front_matter() -> None:
     meta, body = split_front_matter("---\ntitle: 安装\nsummary: 简介\n---\n# 安装\n")
     assert meta == {"title": "安装", "summary": "简介"} and body == "# 安装\n"
@@ -49,6 +90,13 @@ def write(root: Path, files: dict[str, str]) -> None:
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
+
+
+def test_loader_link_targets(tmp_path: Path) -> None:
+    write(tmp_path, {"a.md": "# A\n见 [B](b.md)。\n"})
+    keep = load_corpus(DirectorySource(tmp_path), LoaderConfig(include=["*"]))[0][0]
+    drop = load_corpus(DirectorySource(tmp_path), LoaderConfig(include=["*"], link_targets=False))
+    assert "[B](b.md)" in keep.text and drop[0][0].text == "# A\n见 B。\n"
 
 
 def test_load_corpus_from_directory(tmp_path: Path) -> None:
@@ -100,3 +148,31 @@ def test_git_source_reads_each_ref(tmp_path: Path) -> None:
     assert v1.describe()["ref"] == "v1" and len(v1.describe()["commit"]) == 40
     with pytest.raises(FileNotFoundError):
         v2.read_text("b.md")
+
+
+def test_shallow_fetch_of_branches(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-q", "-b", "release-1")
+    git(repo, "config", "user.email", "t@example.com")
+    git(repo, "config", "user.name", "t")
+    for i in range(2):  # two commits on release-1: only the latest is fetched
+        write(repo, {"a.md": f"# A\nv1.{i}\n"})
+        git(repo, "add", ".")
+        git(repo, "commit", "-qm", f"v1.{i}")
+    git(repo, "checkout", "-q", "-b", "release-2")
+    write(repo, {"a.md": "# A\nv2\n"})
+    git(repo, "commit", "-qam", "v2")
+
+    dest = tmp_path / "clone"
+    clone_or_fetch(f"file://{repo}", dest, ["release-2", "release-1"])
+    clone_or_fetch(f"file://{repo}", dest, ["release-2", "release-1"])  # updates in place
+    assert GitSource(dest, "origin/release-1").read_text("a.md") == "# A\nv1.1\n"
+    assert GitSource(dest, "origin/release-2").read_text("a.md") == "# A\nv2\n"
+    log = subprocess.run(
+        ["git", "-C", str(dest), "rev-list", "--count", "origin/release-1"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert log.stdout.strip() == "1"
