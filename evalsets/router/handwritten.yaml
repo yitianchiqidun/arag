@@ -1,4 +1,5 @@
-# Hand-written questions for the router test (stage 8, D35). Business symptoms never name
+# Hand-written questions for the router test (stage 8, D35), written by the AI coding assistant
+# (Claude) used in this project, not collected from real users. Business symptoms never name
 # TiDB or the database; the unrelated ones include device and network problems that look like
 # performance symptoms but have nothing to do with the business system.
 diagnosis:

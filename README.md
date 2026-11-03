@@ -121,7 +121,22 @@ CHAT_DEMO_API_URL=http://127.0.0.1:8000 uv run streamlit run apps/chat_demo.py
 
 接口：`POST /chat`（同步）、`POST /chat/stream`（SSE，事件类型：route、retrieval_start、tool_call、tool_result、confirm_required、answer、error、done）、`POST /chat/confirm`（确认或拒绝待执行的修改）、`GET /sessions/{id}`、`GET /health`。
 
-**Docker**：`docker compose up --build` 会启动 API（:8000）和演示页（:8501）。TiDB 不在 compose 里，仍由 tiup 在宿主机上运行；两个服务都用宿主机网络连接它，并把 `data/` 挂载进容器。**这部分没有实测**：开发机的 WSL 发行版没有开启 Docker Desktop 集成。
+**Docker**：
+
+```bash
+docker compose up -d --build --wait
+```
+
+会启动 API（127.0.0.1:8000）和演示页（127.0.0.1:8501），两个服务共用同一个镜像。
+
+- **镜像**：用 CPU 版 torch，容器里只做查询编码；镜像约 2.0 GB，其中 torch 占 0.7 GB。
+- **TiDB**：不在 compose 里，仍由 tiup 在宿主机上运行，容器经 `host.docker.internal:4000` 连接。在 Docker Desktop + WSL2 上实测：宿主机网络模式连不上 WSL 里的 127.0.0.1，桥接网络可以。
+- **挂载**：文档索引 `data/tidb_docs` 和嵌入模型的 Hugging Face 缓存只读挂载，容器内不重建索引、不下载模型；会话、轨迹和审计日志写到 `data/assistant_docker/`。
+- **验收**（2026-11-03，Docker Desktop，Engine 29.8，WSL2）：curl 调流式接口，事件逐步返回；在演示页容器里完成了一次参数对话和一次带写操作确认的诊断。见 `docs/experiments.md` “阶段 9”。
+
+```bash
+docker compose exec -T demo python -m research_agent.service.demo_check
+```
 
 **换成本地模型**：`configs/assistant_local.yaml` 演示如何把诊断 Agent 换成本地 vLLM 等 OpenAI 兼容服务（`base_url`、`api_key_env`、`local: true` 按零成本计费）。
 

@@ -47,7 +47,8 @@
 | 2026-11-03 | 阶段 8：统计信息场景重跑、缺索引补充场景 | 0.2867 | — | 0.2867 | 20.0255 |
 | 2026-11-03 | 阶段 8：分类器测试集，修改前后各一次（50 题 × 2） | 0.0080 | — | 0.0080 | 20.0335 |
 | 2026-11-03 | 阶段 8：4 个故障场景第二轮（分类器修正、要求引用文档后） | 0.8626 | — | 0.8626 | 20.8961 |
-| 2026-11-03 | 阶段 9：服务验证（curl 流式 1 次、演示页诊断 4 次、curl 确认流程 1 次） | 0.5143 | — | 0.5143 | **21.4104** |
+| 2026-11-03 | 阶段 9：服务验证（curl 流式 1 次、演示页诊断 4 次、curl 确认流程 1 次） | 0.5143 | — | 0.5143 | 21.4104 |
+| 2026-11-03 | 阶段 9：Docker 验收（curl 流式 1 次、演示页参数对话 1 次、诊断加确认 1 次） | 0.0431 | — | 0.0431 | **21.4535** |
 
 ---
 
@@ -568,7 +569,47 @@ LLM-Acc 和 Cont-Acc 都以全部 100 题为分母；p 值是每行与 A-RAG (Fu
     4 次都没有提出修改；其中 3 次在前 3 次工具调用里就查到 `tidb_mem_quota_query = 1048576`。
 
   - 确认流程（curl）：`/chat` 得到待确认的 `SET GLOBAL tidb_mem_quota_query = 1073741824`，`/chat/confirm` 执行后集群上的值从 1048576 变为 1073741824，审计日志记录了修改前后的值；两轮共 36 秒，0.025 元。
-- 单元测试 235 项通过，另有 4 项连接真实集群的测试默认跳过（`TIDB_LIVE=1` 时运行，已通过）；ruff、mypy 无报错。
-- 没有实测：Docker 镜像和 compose（WSL 未开启 Docker Desktop 集成），以及 GitHub Actions（尚未在 GitHub 上运行）。
+- 单元测试 235 项通过（Docker 验收时为 236 项），另有 4 项连接真实集群的测试默认跳过（`TIDB_LIVE=1` 时运行，已通过）；ruff、mypy 无报错。
+- 没有实测：GitHub Actions（尚未在 GitHub 上运行）。
 - 花费 0.51 元，本月累计 21.41 元。
+
+### Docker 验收（D36；Docker Desktop，Engine 29.8，WSL2）
+
+- **镜像** `tidb-ops-assistant:latest`：
+  - CPU 版 torch 2.11.0+cpu，两阶段构建，构建用时 128 秒；
+  - 大小约 2.0 GB（`docker image inspect`：1,995,555,673 字节）；
+  - `/app` 层 1.44 GB，其中 torch 697 MB、pyarrow 163 MB、scipy 93 MB、transformers 58 MB。
+- **网络测试**（`python:3.12-slim` 测试容器）：宿主机网络模式连 127.0.0.1:4000 被拒绝；桥接网络连 `host.docker.internal:4000` 成功。
+- **内存**（`free -m`，WSL 虚拟机共 7,821 MiB，记录在 `results/stage9_memory.txt`）：
+
+  | 时间点 | 已用 | 可用 | 容器 |
+  | --- | ---: | ---: | --- |
+  | 启动前 | 2,792 MiB | 5,029 MiB | — |
+  | 启动后 | 3,454 MiB | 4,367 MiB | API 1.06 GiB，演示页 70 MiB |
+  | 演示中 | 3,487 MiB | 4,333 MiB | API 1.03 GiB，演示页 82 MiB |
+  | `compose down` 后 | 2,731 MiB | 5,090 MiB | — |
+
+  启动前 TiKV 常驻只有 937 MiB（之前约 2.2 GiB），swap 已用 1.4 GiB。没有出现内存不足，TiDB 集群一直在运行。
+- **验收**：
+  - `docker compose up -d --wait` 用时 22 秒，API 和演示页都健康；`/health` 显示能连上集群；演示页 HTTP 200。
+  - curl `/chat/stream`（参数题）：session 0.0 秒 → route 2.0 秒 → retrieval_start 2.0 秒 → tool_result 12.6 秒 → answer 12.6 秒 → done，事件逐步返回。
+  - 演示页（在 demo 容器内用 Streamlit 无头测试驱动，经 `http://api:8000` 调用 API 容器，`research_agent/service/demo_check.py`）：
+    - 参数对话 15.6 秒，答出 1 GB 并显示引用；
+    - 故障诊断（先在宿主机注入内存上限故障）31.1 秒后页面出现待确认的 `SET GLOBAL tidb_mem_quota_query = 1073741824` 和确认按钮，点击确认后 7.3 秒得到完整结论，确认按钮消失；
+    - 审计日志记录 1048576 → 1073741824。验收后清理故障，集群恢复默认值。
+  - 诊断问题里直接点出了变量名，目的是保证走到写操作确认。没有用真实浏览器操作（没有连接的浏览器）。
+- **清理**（只清理本次构建产生的内容）：
+  - 先记录构建前已有的 101 条构建缓存；构建后共 121 条。
+  - 对新增的 21 条逐条执行 `docker builder prune --filter id=…`，释放约 1.8 GB。剩下 15 条与保留的镜像共享数据，删除不释放空间。
+  - `docker image prune --filter label=project=tidb-ops-assistant`：没有悬空镜像。
+  - 原有缓存保留了 100 条；少掉的 1 条是构建过程中 BuildKit 自动回收的，发生在任何清理之前。其他项目的镜像都没有动。
+
+  | `docker system df` | 镜像 | 构建缓存 |
+  | --- | --- | --- |
+  | 构建前 | 29 个，13.61 GB | 101 条，7.421 GB |
+  | 清理前（构建并 down 之后） | 31 个，15.61 GB | 121 条，9.827 GB |
+  | 清理后 | 31 个，15.61 GB | 115 条，8.008 GB |
+
+  新增的两个镜像是 `tidb-ops-assistant:latest`（保留，供以后运行）和它的基础镜像 `python:3.12-slim`。
+- 花费 0.043 元，本月累计 21.45 元。
 
