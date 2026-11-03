@@ -246,3 +246,20 @@ def test_diagnosis_stops_at_the_turn_deadline() -> None:
     assert answer["text"] == prompts.DIAG_TIMEOUT
     assert not [e for e in out if e["type"] == "tool_call"]
     assert bot.pending("s1") is None
+
+
+def test_step_limit_asks_for_a_conclusion_without_tools() -> None:
+    def agent_script(messages: list[dict[str, Any]], tools: Any) -> dict[str, Any]:
+        if tools is None:  # the final call after the step limit
+            return {"content": "根因：status 没有索引（依据：执行计划为 TableFullScan）。"}
+        n = len([m for m in messages if m["role"] == "tool"])
+        return {"content": "", "tool_calls": [tool_call("slow_queries", {}, f"c{n}")]}
+
+    agent = FakeChat(agent_script)
+    bot, _ = assistant("diagnosis", agent=agent)
+    bot.services.max_steps = 3
+    out = events(bot.ask("s1", "查询变慢了"))
+    answer = next(e for e in out if e["type"] == "answer")
+    assert answer["text"] == "根因：status 没有索引（依据：执行计划为 TableFullScan）。"
+    assert len([e for e in out if e["type"] == "tool_call"]) == 3
+    assert agent.calls[-1][-1] == {"role": "user", "content": prompts.DIAG_STEP_LIMIT}

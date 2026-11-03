@@ -339,10 +339,21 @@ def build_graph(services: Services, checkpointer: Any) -> Any:
                     "citations": citations,
                     "cost": cost,
                 }
+        # Step limit: one more call without tools for a conclusion from what was gathered,
+        # instead of discarding it (writes can no longer be proposed, only suggested).
+        messages.append({"role": "user", "content": prompts.DIAG_STEP_LIMIT})
+        try:
+            reply = llm.chat(messages, tools=None, temperature=0.0)
+            cost += _cost(reply)
+            answer = _text(reply) or prompts.DIAG_NO_CONCLUSION
+            messages.append({"role": "assistant", "content": answer})
+        except Exception:  # noqa: BLE001 - the canned message is still an answer
+            answer = prompts.DIAG_NO_CONCLUSION
         return {
             "diag_messages": messages,
-            "answer": "诊断步骤达到上限，未能得出结论。",
+            "answer": answer,
             "evidence": evidence,
+            "cluster_down": cluster_down,
             "citations": citations,
             "cost": cost,
             "pending_write": None,
