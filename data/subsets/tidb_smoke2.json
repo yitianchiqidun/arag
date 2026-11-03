@@ -1,0 +1,32 @@
+[
+ {
+  "id": "tidb_smoke__param__1",
+  "source": "tidb_docs_smoke",
+  "question": "TiDB 系统变量 tidb_mem_quota_query 的默认值是多少？",
+  "answer": "1073741824 字节（1 GiB）",
+  "question_type": "param",
+  "evidence": "",
+  "evidence_chunks": [
+   "403"
+  ],
+  "evidence_docs": [
+   "system-variables.md"
+  ],
+  "corpus_build": "data/tidb_docs/current (docs-cn release-8.5 1b354399)"
+ },
+ {
+  "id": "tidb_smoke__release__1",
+  "source": "tidb_docs_smoke",
+  "question": "在 TiDB v8.5.0 的兼容性变更中，哪个系统变量的默认值被修改了？改成了什么？",
+  "answer": "tidb_enable_fast_create_table，默认值从 OFF 改为 ON",
+  "question_type": "release",
+  "evidence": "",
+  "evidence_chunks": [
+   "243"
+  ],
+  "evidence_docs": [
+   "releases/release-8.5.0.md"
+  ],
+  "corpus_build": "data/tidb_docs/current (docs-cn release-8.5 1b354399)"
+ }
+]

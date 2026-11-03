@@ -1,0 +1,33 @@
+# A-RAG (Full) on the TiDB docs subset (design_decisions.md D22) with the main model.
+# Same models and agent settings as configs/musique_qwen37_plus.yaml; only the corpus differs.
+# Build the index first:
+#   python -m research_agent.ingest build configs/corpora/tidb_docs.yaml \
+#     --ref origin/release-8.5 --out data/tidb_docs/current
+
+llm:
+  model: "qwen3.7-plus-2026-05-26"  # pinned snapshot
+  temperature: 0.0
+  max_tokens: 16384
+  enable_thinking: false
+
+judge:
+  model: "qwen-plus-2025-12-01"
+  temperature: 0.0
+  max_tokens: 16
+  enable_thinking: false
+
+embedding:
+  model: "Qwen/Qwen3-Embedding-0.6B"
+  device: "cuda:0"
+  batch_size: 16
+
+agent:
+  max_loops: 15
+  max_token_budget: 128000
+
+data:
+  chunks_file: "data/tidb_docs/current/chunks.json"
+  index_dir: "data/tidb_docs/current/index"
+  sentence_split: multilingual  # Chinese keyword_search snippets (research_agent/ingest/sentences.py)
+
+pricing_file: "configs/pricing_bailian.yaml"

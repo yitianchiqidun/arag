@@ -1,0 +1,23 @@
+# Stage 3 acceptance: Naive RAG and A-RAG (Full) each answer two Chinese questions on the
+# TiDB docs index (a parameter lookup and a release-notes question), with citations.
+#
+#   python -m research_agent.eval suite configs/suites/stage3_tidb_smoke.yaml --max-cost 0.5
+name: stage3_tidb_smoke
+description: acceptance check of the TiDB docs index, two questions per channel
+base_config: configs/tidb_docs_qwen37_plus.yaml
+questions: data/subsets/tidb_smoke2.json
+output_root: results/dev/stage3_tidb_smoke
+reference: arag_full
+
+variants:
+  - name: naive_rag
+    description: top-5 chunks by dense retrieval, one LLM call
+    overrides: {method: naive_rag}
+
+  - name: arag_full
+    description: A-RAG with all three tools
+    overrides: {}
+
+  - name: naive_rag_cite
+    description: Naive RAG asked to cite chunk ids (A-RAG's citation line; off in the paper prompt)
+    overrides: {method: naive_rag, naive_rag: {cite_chunks: true}}
