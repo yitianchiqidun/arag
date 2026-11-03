@@ -7,12 +7,12 @@
   "question_type": "param",
   "evidence": "",
   "evidence_chunks": [
-   "403"
+   "408"
   ],
   "evidence_docs": [
    "system-variables.md"
   ],
-  "corpus_build": "data/tidb_docs/current (docs-cn release-8.5 1b354399)"
+  "corpus_build": "data/tidb_docs/current (docs-cn release-8.5 1b354399, 579 chunks)"
  },
  {
   "id": "tidb_smoke__release__1",
@@ -27,6 +27,6 @@
   "evidence_docs": [
    "releases/release-8.5.0.md"
   ],
-  "corpus_build": "data/tidb_docs/current (docs-cn release-8.5 1b354399)"
+  "corpus_build": "data/tidb_docs/current (docs-cn release-8.5 1b354399, 579 chunks)"
  }
 ]
