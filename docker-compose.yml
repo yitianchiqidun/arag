@@ -1,41 +1,42 @@
-# `docker compose up`: the API on :8000 and the demo page on :8501 (stage 9).
+# `docker compose up --build`: the API on :8000 and the demo page on :8501 (stage 9).
 #
-# Before: start TiDB on the host (`python -m research_agent.tidb start`, it listens on
-# 127.0.0.1:4000), build the docs index under data/ (README), and fill in .env. Both services
-# use the host network to reach TiDB on 127.0.0.1; on Docker Desktop, turn on host networking
-# (Settings > Resources > Network). The embedding model runs on the GPU (NVIDIA runtime).
+# Before: start TiDB on the host (`python -m research_agent.tidb start`; it listens on
+# 127.0.0.1:4000 inside WSL, reached from the containers as host.docker.internal), build the
+# docs index into data/tidb_docs/current (README) and fill in .env. The index and the
+# embedding model (Hugging Face cache) are mounted read-only; sessions, traces and the write
+# audit log go to data/assistant_docker/.
 services:
   api:
     build: .
-    image: tidb-ops-assistant
+    image: tidb-ops-assistant:latest
     command: uvicorn research_agent.service.app:app --host 0.0.0.0 --port 8000
-    network_mode: host
+    ports:
+      - "127.0.0.1:8000:8000"
     env_file: .env
     environment:
       ASSISTANT_CONFIG: configs/assistant.yaml
+      TIDB_HOST: host.docker.internal
       REQUEST_TIMEOUT_S: "300"
       MAX_ACTIVE_TURNS: "4"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      - ./data:/app/data  # docs index (read) and sessions, traces, write audit (write)
-      - ${HF_CACHE:-~/.cache/huggingface}:/models  # Qwen3-Embedding-0.6B
+      - ./data/tidb_docs:/app/data/tidb_docs:ro
+      - ${HF_CACHE:-~/.cache/huggingface}:/models:ro
+      - ./data/assistant_docker:/app/data/assistant
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
-      interval: 15s
+      interval: 10s
+      timeout: 5s
       start_period: 120s
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   demo:
-    image: tidb-ops-assistant
-    command: streamlit run apps/chat_demo.py --server.port 8501 --server.address 0.0.0.0
-    network_mode: host
+    image: tidb-ops-assistant:latest
+    command: streamlit run apps/chat_demo.py --server.port 8501 --server.address 0.0.0.0 --server.headless true --browser.gatherUsageStats false
+    ports:
+      - "127.0.0.1:8501:8501"
     environment:
-      CHAT_DEMO_API_URL: http://127.0.0.1:8000
+      CHAT_DEMO_API_URL: http://api:8000
     depends_on:
       api:
         condition: service_healthy
