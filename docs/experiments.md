@@ -500,3 +500,15 @@ LLM-Acc 和 Cont-Acc 都以全部 100 题为分母；p 值是每行与 A-RAG (Fu
 - 证据检查：全部 A-RAG 的 13 个正确答案没写块编号，按助手原来的证据检查会被拒答（相当于准确率 89.7%）；改为用读过的块作为依据后全部通过（D32）。
 - 离线估算（未实现）：快通道回答“没有找到”时回退到 A-RAG，准确率 96.0%，P50 7.5 秒，每 100 题 1.52 元。
 - 结论：助手默认全部走 A-RAG（`fast_intents: []`）。花费 1.76 元，本月累计 18.14 元。
+
+## 2026-11-03 · 阶段 5：本地 TiDB 集群与只读账号（D33，无 API 调用）
+
+- `tiup playground v8.5.8`（1 PD、1 TiKV、1 TiDB，无 TiFlash、无监控），由用户安装 tiup 后用 `python -m research_agent.tidb start` 启动。首次启动下载组件约 580 MB（`~/.tiup` 共 1.2 GB），集群数据 207 MB。
+- 示例库 `shop`：users 10,000、products 2,000、orders 30,000、order_items 59,923 行。
+- 常驻内存（启动并导入数据后）：TiDB 431–443 MiB、TiKV 2,211–2,431 MiB、PD 126–139 MiB，合计约 2.8 GiB（本机 7.8 GiB）。TiKV 占大头，主要是 block cache 的默认值（系统内存的 45%）；目前够用，没有调小。
+- `python -m research_agent.tidb verify`：8 条写探测全部被权限拒绝。`TIDB_LIVE=1` 的实时测试 4 项全部通过，其中新增的一项会把 12 个只读工具全部在真实集群上执行一遍。
+- 在真实集群上发现并修复了 3 个问题（D33）：
+  1. 建只读账号时，`'%'` 被驱动当成格式符；
+  2. `verify` 把登录失败也算作“写操作被拒绝”；
+  3. `SHOW STATS_HEALTHY` 需要整个 `mysql` 库的权限，改为只授权 `mysql.stats_meta` 并自己计算健康度。
+
